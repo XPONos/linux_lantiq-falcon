@@ -130,7 +130,13 @@
 #define ATM_ABR		4
 #define ATM_ANYCLASS	5		/* compatible with everything */
 
+#define ATM_VBR_NRT     ATM_VBR
+#define ATM_VBR_RT      6
+#define ATM_UBR_PLUS    7
+#define ATM_GFR         8
+
 #define ATM_MAX_PCR	-1		/* maximum available PCR */
+
 
 struct atm_trafprm {
 	unsigned char	traffic_class;	/* traffic class (ATM_UBR, ...) */

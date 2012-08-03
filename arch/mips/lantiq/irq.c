@@ -14,6 +14,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/module.h>
 
 #include <asm/bootinfo.h>
 #include <asm/irq_cpu.h>
@@ -99,6 +100,7 @@ void ltq_mask_and_ack_irq(struct irq_data *d)
 	ltq_icu_w32(im, ltq_icu_r32(im, ier) & ~BIT(offset), ier);
 	ltq_icu_w32(im, BIT(offset), isr);
 }
+EXPORT_SYMBOL(ltq_mask_and_ack_irq);
 
 static void ltq_ack_irq(struct irq_data *d)
 {
