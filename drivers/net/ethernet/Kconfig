@@ -83,7 +83,13 @@ config LANTIQ_ETOP
 	tristate "Lantiq SoC ETOP driver"
 	depends on SOC_TYPE_XWAY
 	---help---
-	  Support for the MII0 inside the Lantiq SoC
+	  Support for the MII0 inside the Lantiq ADSL SoC
+
+config LANTIQ_XRX200
+	tristate "Lantiq SoC XRX200 driver"
+	depends on SOC_TYPE_XWAY
+	---help---
+	  Support for the MII0 inside the Lantiq VDSL SoC
 
 source "drivers/net/ethernet/marvell/Kconfig"
 source "drivers/net/ethernet/mellanox/Kconfig"
