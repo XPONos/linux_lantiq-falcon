@@ -1,0 +1,45 @@
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
+#
+# (C) Copyright 2007 - 2012
+# Lantiq Deutschland GmbH
+#
+# (C) Copyright 2012
+# Daniel Schwierzeck <daniel.schwierzeck@googlemail.com>
+#
+
+#
+# How to use
+#
+Configure kernel with:
+CONFIG_FW_LOADER=y
+CONFIG_EXTRA_FIRMWARE_DIR="FIRMWARE_DIR"
+CONFIG_EXTRA_FIRMWARE="FIRMWARE_FILES"
+
+where FIRMWARE_DIR should point to this git tree and FIRMWARE_FILES is a list
+of space separated files from list below.
+
+#
+# Firmware files
+#
+
+# GPHY core on Lantiq XWAY VR9 v1.1
+lantiq/vr9_phy11g_a1x.bin
+lantiq/vr9_phy22f_a1x.bin
+
+# GPHY core on Lantiq XWAY VR9 v1.2
+lantiq/vr9_phy11g_a2x.bin
+lantiq/vr9_phy22f_a2x.bin
