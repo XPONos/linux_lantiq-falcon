@@ -4037,7 +4037,7 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 		udev->ttport = hdev->ttport;
 	} else if (udev->speed != USB_SPEED_HIGH
 			&& hdev->speed == USB_SPEED_HIGH) {
-		if (!hub->tt.hub) {
+		if (hdev->parent && !hub->tt.hub) {
 			dev_err(&udev->dev, "parent hub has no TT\n");
 			retval = -EINVAL;
 			goto fail;
