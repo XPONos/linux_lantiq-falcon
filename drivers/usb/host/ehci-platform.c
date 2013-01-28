@@ -47,6 +47,7 @@ static int ehci_platform_reset(struct usb_hcd *hcd)
 	ehci->has_synopsys_hc_bug = pdata->has_synopsys_hc_bug;
 	ehci->big_endian_desc = pdata->big_endian_desc;
 	ehci->big_endian_mmio = pdata->big_endian_mmio;
+	ehci->ignore_oc = pdata->ignore_oc;
 
 	ehci->caps = hcd->regs + pdata->caps_offset;
 	retval = ehci_setup(hcd);
