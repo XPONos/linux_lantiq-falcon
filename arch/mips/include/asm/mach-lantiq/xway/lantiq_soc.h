@@ -90,5 +90,8 @@ int xrx200_gphy_boot(struct device *dev, unsigned int id, dma_addr_t dev_addr);
 extern void ltq_pmu_enable(unsigned int module);
 extern void ltq_pmu_disable(unsigned int module);
 
+/* allow the ethernet driver to load a flash mapped mac addr */
+const u8* ltq_get_eth_mac(void);
+
 #endif /* CONFIG_SOC_TYPE_XWAY */
 #endif /* _LTQ_XWAY_H__ */
