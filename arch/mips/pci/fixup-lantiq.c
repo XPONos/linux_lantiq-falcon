@@ -11,11 +11,12 @@
 
 int (*ltq_pci_plat_arch_init)(struct pci_dev *dev) = NULL;
 int (*ltq_pci_plat_dev_init)(struct pci_dev *dev) = NULL;
+int (*ltq_pci_map_irq)(const struct pci_dev *dev, u8 slot, u8 pin);
 
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
 	if (ltq_pci_plat_arch_init)
-		return ltq_pci_plat_arch_init(dev);
+		ltq_pci_plat_arch_init(dev);
 
 	if (ltq_pci_plat_dev_init)
 		return ltq_pci_plat_dev_init(dev);
@@ -28,6 +29,8 @@ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	struct of_irq dev_irq;
 	int irq;
 
+	if (ltq_pci_map_irq)
+		return ltq_pci_map_irq(dev, slot, pin);
 	if (of_irq_map_pci(dev, &dev_irq)) {
 		dev_err(&dev->dev, "trying to map irq for unknown slot:%d pin:%d\n",
 			slot, pin);

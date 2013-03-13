@@ -5,7 +5,7 @@
 config PCIEAER
 	boolean "Root Port Advanced Error Reporting support"
 	depends on PCIEPORTBUS
-	default y
+	default n
 	help
 	  This enables PCI Express Root Port Advanced Error Reporting
 	  (AER) driver support. Error reporting messages sent to Root
