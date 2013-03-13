@@ -266,6 +266,31 @@ static int __init pcibios_init(void)
 
 subsys_initcall(pcibios_init);
 
+int pcibios_host_nr(void)
+{
+    int count;
+    struct pci_controller *hose;
+    for (count = 0, hose = hose_head; hose; hose = hose->next, count++) {
+        ;
+    }
+    return count;
+}
+EXPORT_SYMBOL(pcibios_host_nr);
+
+int pcibios_1st_host_bus_nr(void)
+{
+    int bus_nr = 0;
+    struct pci_controller *hose = hose_head;
+
+    if (hose != NULL) {
+        if (hose->bus != NULL) {
+            bus_nr = hose->bus->number + 1;
+        }
+    }
+    return bus_nr;
+}
+EXPORT_SYMBOL(pcibios_1st_host_bus_nr);
+
 static int pcibios_enable_resources(struct pci_dev *dev, int mask)
 {
 	u16 cmd, old_cmd;

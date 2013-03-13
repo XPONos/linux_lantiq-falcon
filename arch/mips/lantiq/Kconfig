@@ -17,6 +17,7 @@ config SOC_XWAY
 	bool "XWAY"
 	select SOC_TYPE_XWAY
 	select HW_HAS_PCI
+	select ARCH_SUPPORTS_MSI
 
 config SOC_FALCON
 	bool "FALCON"
@@ -35,6 +36,15 @@ endchoice
 config PCI_LANTIQ
 	bool "PCI Support"
 	depends on SOC_XWAY && PCI
+
+config PCIE_LANTIQ
+	bool "PCIE Support"
+	depends on SOC_XWAY && PCI
+
+config PCIE_LANTIQ_MSI
+	bool
+	depends on PCIE_LANTIQ && PCI_MSI
+	default y
 
 config XRX200_PHY_FW
 	bool "XRX200 PHY firmware loader"
