@@ -153,6 +153,11 @@ config MICREL_PHY
 	---help---
 	  Currently has a driver for the KSZ8041
 
+config LANTIQ_PHY
+	tristate "Driver for Lantiq PHYs"
+	---help---
+	  Supports the 11G and 22E PHYs.
+
 config FIXED_PHY
 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
 	depends on PHYLIB=y
