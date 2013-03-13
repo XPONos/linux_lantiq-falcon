@@ -496,6 +496,14 @@ config SPI_NUC900
 	help
 	  SPI driver for Nuvoton NUC900 series ARM SoCs
 
+config SPI_XWAY
+	tristate "Lantiq XWAY SPI controller"
+	depends on LANTIQ && SOC_TYPE_XWAY
+	select SPI_BITBANG
+	help
+	  This driver supports the Lantiq SoC SPI controller in master
+	  mode.
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
