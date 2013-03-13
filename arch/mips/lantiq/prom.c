@@ -57,6 +57,8 @@ static void __init prom_init_cmdline(void)
 	}
 }
 
+extern struct boot_param_header __image_dtb;
+
 void __init plat_mem_setup(void)
 {
 	ioport_resource.start = IOPORT_RESOURCE_START;
@@ -70,7 +72,7 @@ void __init plat_mem_setup(void)
 	 * Load the builtin devicetree. This causes the chosen node to be
 	 * parsed resulting in our memory appearing
 	 */
-	__dt_setup_arch(&__dtb_start);
+	__dt_setup_arch(&__image_dtb);
 }
 
 void __init device_tree_init(void)
