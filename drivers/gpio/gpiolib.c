@@ -96,7 +96,7 @@ static int gpiod_get_value(const struct gpio_desc *desc);
 static void gpiod_set_value(struct gpio_desc *desc, int value);
 static int gpiod_cansleep(const struct gpio_desc *desc);
 static int gpiod_to_irq(const struct gpio_desc *desc);
-static int gpiod_export(struct gpio_desc *desc, bool direction_may_change);
+static int gpiod_export(struct gpio_desc *desc, bool direction_may_change, const char *name);
 static int gpiod_export_link(struct device *dev, const char *name,
 			     struct gpio_desc *desc);
 static int gpiod_sysfs_set_active_low(struct gpio_desc *desc, int value);
@@ -674,7 +674,7 @@ static ssize_t export_store(struct class *class,
 			status = -ENODEV;
 		goto done;
 	}
-	status = gpiod_export(desc, true);
+	status = gpiod_export(desc, true, NULL);
 	if (status < 0)
 		gpiod_free(desc);
 	else
@@ -736,9 +736,10 @@ static struct class gpio_class = {
 
 
 /**
- * gpio_export - export a GPIO through sysfs
+ * gpio_export_with_name - export a GPIO through sysfs
  * @gpio: gpio to make available, already requested
  * @direction_may_change: true if userspace may change gpio direction
+ * @name: gpio name
  * Context: arch_initcall or later
  *
  * When drivers want to make a GPIO accessible to userspace after they
@@ -750,7 +751,7 @@ static struct class gpio_class = {
  *
  * Returns zero on success, else an error.
  */
-static int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
+static int gpiod_export(struct gpio_desc *desc, bool direction_may_change, const char *name)
 {
 	unsigned long		flags;
 	int			status;
@@ -783,6 +784,8 @@ static int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 		goto fail_unlock;
 	}
 
+	if (name)
+		ioname = name;
 	if (!desc->chip->direction_input || !desc->chip->direction_output)
 		direction_may_change = false;
 	spin_unlock_irqrestore(&gpio_lock, flags);
@@ -829,11 +832,11 @@ fail_unlock:
 	return status;
 }
 
-int gpio_export(unsigned gpio, bool direction_may_change)
+int gpio_export_with_name(unsigned gpio, bool direction_may_change, const char *name)
 {
-	return gpiod_export(gpio_to_desc(gpio), direction_may_change);
+	return gpiod_export(gpio_to_desc(gpio), direction_may_change, name);
 }
-EXPORT_SYMBOL_GPL(gpio_export);
+EXPORT_SYMBOL_GPL(gpio_export_with_name);
 
 static int match_export(struct device *dev, const void *data)
 {
@@ -1092,7 +1095,7 @@ static inline void gpiochip_unexport(struct gpio_chip *chip)
 }
 
 static inline int gpiod_export(struct gpio_desc *desc,
-			       bool direction_may_change)
+			       bool direction_may_change, const char *name)
 {
 	return -ENOSYS;
 }
@@ -1521,6 +1524,9 @@ int gpio_request_one(unsigned gpio, unsigned long flags, const char *label)
 	if (flags & GPIOF_OPEN_SOURCE)
 		set_bit(FLAG_OPEN_SOURCE, &desc->flags);
 
+	if (flags & GPIOF_ACTIVE_LOW)
+		set_bit(FLAG_ACTIVE_LOW, &gpio_desc[gpio].flags);
+
 	if (flags & GPIOF_DIR_IN)
 		err = gpiod_direction_input(desc);
 	else
@@ -1531,7 +1537,7 @@ int gpio_request_one(unsigned gpio, unsigned long flags, const char *label)
 		goto free_gpio;
 
 	if (flags & GPIOF_EXPORT) {
-		err = gpiod_export(desc, flags & GPIOF_EXPORT_CHANGEABLE);
+		err = gpiod_export(desc, flags & GPIOF_EXPORT_CHANGEABLE, NULL);
 		if (err)
 			goto free_gpio;
 	}

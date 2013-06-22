@@ -202,7 +202,8 @@ extern void gpio_free_array(const struct gpio *array, size_t num);
  * A sysfs interface can be exported by individual drivers if they want,
  * but more typically is configured entirely from userspace.
  */
-extern int gpio_export(unsigned gpio, bool direction_may_change);
+extern int gpio_export_with_name(unsigned gpio, bool direction_may_change,
+			const char *name);
 extern int gpio_export_link(struct device *dev, const char *name,
 			unsigned gpio);
 extern int gpio_sysfs_set_active_low(unsigned gpio, int value);
@@ -284,7 +285,8 @@ struct device;
 
 /* sysfs support is only available with gpiolib, where it's optional */
 
-static inline int gpio_export(unsigned gpio, bool direction_may_change)
+static inline int gpio_export_with_name(unsigned gpio,
+	bool direction_may_change, const char *name)
 {
 	return -ENOSYS;
 }

@@ -112,3 +112,63 @@ where,
 
 The pinctrl node must have "#gpio-range-cells" property to show number of
 arguments to pass with phandle from gpio controllers node.
+
+3) gpio-export
+--------------
+
+gpio-export will allow you to automatically export gpio
+
+required properties:
+- compatible: Should be "gpio-export"
+
+in each child node will reprensent a gpio or if no name is specified
+a list of gpio to export
+
+required properties:
+- gpios: gpio to export
+
+optional properties:
+ - gpio-export,name: export name
+ - gpio-export,output: to set the as output with default value
+ 		       if no present gpio as input
+ - pio-export,direction_may_change: boolean to allow the direction to be controllable
+
+Example:
+
+
+gpio_export {
+	compatible = "gpio-export";
+	#size-cells = <0>;
+
+	in {
+		gpio-export,name = "in";
+		gpios = <&pioC 20 0>;
+	};
+
+	out {
+		gpio-export,name = "out";
+		gpio-export,output = <1>;
+		gpio-export,direction_may_change;
+		gpios = <&pioC 21 0>;
+	};
+
+	in_out {
+		gpio-export,name = "in_out";
+		gpio-export,direction_may_change;
+		gpios = <&pioC 21 0>;
+	};
+
+	gpios_in {
+		gpios = <&pioB 0 0
+			 &pioB 3 0
+			 &pioC 4 0>;
+		gpio-export,direction_may_change;
+	};
+
+	gpios_out {
+		gpios = <&pioB 1 0
+			 &pioB 2 0
+			 &pioC 3 0>;
+		gpio-export,output = <1>;
+	};
+};
