@@ -1,6 +1,6 @@
 obj-y := prom.o sysctrl.o clk.o reset.o dma.o timer.o dcdc.o
 
-obj-y += vmmc.o mtd_split.o
+obj-y += vmmc.o mtd_split.o tffs.o
 
 obj-y += eth_mac.o
 obj-$(CONFIG_PCI) += ath_eep.o rt_eep.o pci-ath-fixup.o
