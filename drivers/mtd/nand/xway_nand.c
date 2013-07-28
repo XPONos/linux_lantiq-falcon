@@ -124,7 +124,7 @@ static unsigned char xway_read_byte(struct mtd_info *mtd)
 	int ret;
 
 	spin_lock_irqsave(&ebu_lock, flags);
-	ret = ltq_r8((void __iomem *)(nandaddr + NAND_READ_DATA));
+	ret = ltq_r8((void __iomem *)(nandaddr | NAND_READ_DATA));
 	spin_unlock_irqrestore(&ebu_lock, flags);
 
 	return ret;
