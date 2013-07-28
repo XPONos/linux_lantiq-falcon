@@ -59,16 +59,22 @@ static u32 xway_latchcmd;
 static void xway_reset_chip(struct nand_chip *chip)
 {
 	unsigned long nandaddr = (unsigned long) chip->IO_ADDR_W;
+	unsigned long timeout;
 	unsigned long flags;
 
 	nandaddr &= ~NAND_WRITE_ADDR;
 	nandaddr |= NAND_WRITE_CMD;
 
 	/* finish with a reset */
+	timeout = jiffies + msecs_to_jiffies(20);
+
 	spin_lock_irqsave(&ebu_lock, flags);
 	writeb(NAND_WRITE_CMD_RESET, (void __iomem *) nandaddr);
-	while ((ltq_ebu_r32(EBU_NAND_WAIT) & NAND_WAIT_WR_C) == 0)
-		;
+	do {
+		if ((ltq_ebu_r32(EBU_NAND_WAIT) & NAND_WAIT_WR_C) == 0)
+			break;
+		cond_resched();
+	} while (!time_after_eq(jiffies, timeout));
 	spin_unlock_irqrestore(&ebu_lock, flags);
 }
 
