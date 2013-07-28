@@ -136,6 +136,32 @@ static unsigned char xway_read_byte(struct mtd_info *mtd)
 	return ret;
 }
 
+static void xway_read_buf(struct mtd_info *mtd, u_char *buf, int len)
+{
+	struct nand_chip *this = mtd->priv;
+	unsigned long nandaddr = (unsigned long) this->IO_ADDR_R;
+	unsigned long flags;
+	int i;
+
+	spin_lock_irqsave(&ebu_lock, flags);
+	for (i = 0; i < len; i++)
+		buf[i] = ltq_r8((void __iomem *)(nandaddr | NAND_READ_DATA));
+	spin_unlock_irqrestore(&ebu_lock, flags);
+}
+
+static void xway_write_buf(struct mtd_info *mtd, const u_char *buf, int len)
+{
+	struct nand_chip *this = mtd->priv;
+	unsigned long nandaddr = (unsigned long) this->IO_ADDR_W;
+	unsigned long flags;
+	int i;
+
+	spin_lock_irqsave(&ebu_lock, flags);
+	for (i = 0; i < len; i++)
+		ltq_w8(buf[i], (void __iomem *)nandaddr);
+	spin_unlock_irqrestore(&ebu_lock, flags);
+}
+
 static int xway_nand_probe(struct platform_device *pdev)
 {
 	struct nand_chip *this = platform_get_drvdata(pdev);
@@ -181,6 +207,8 @@ static struct platform_nand_data xway_nand_data = {
 		.dev_ready	= xway_dev_ready,
 		.select_chip	= xway_select_chip,
 		.read_byte	= xway_read_byte,
+		.read_buf	= xway_read_buf,
+		.write_buf	= xway_write_buf,
 	}
 };
 
