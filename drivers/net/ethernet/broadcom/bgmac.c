@@ -363,6 +363,27 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
 			dma_addr_t old_dma_addr = slot->dma_addr;
 			int err;
 
+			if (len > BGMAC_RX_MAX_FRAME_SIZE) {
+				struct bgmac_dma_desc *dma_desc = ring->cpu_base + ring->start;
+
+				bgmac_err(bgmac, "Hardware reported invalid packet length %d for slot %d!\n", len, ring->start);
+				bgmac_err(bgmac, "flags: 0x%04X\n", flags);
+				bgmac_err(bgmac, "ctl0: 0x%08X\tctl1: 0x%08X\n", le32_to_cpu(dma_desc->ctl0), le32_to_cpu(dma_desc->ctl1));
+
+				bgmac_err(bgmac, "   BGMAC_DMA_RX_CTL: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_CTL));
+				bgmac_err(bgmac, " BGMAC_DMA_RX_INDEX: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX));
+				bgmac_err(bgmac, "BGMAC_DMA_RX_RINGLO: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_RINGLO));
+				bgmac_err(bgmac, "BGMAC_DMA_RX_RINGHI: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_RINGHI));
+				bgmac_err(bgmac, "BGMAC_DMA_RX_STATUS: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_STATUS));
+				bgmac_err(bgmac, " BGMAC_DMA_RX_ERROR: 0x%08X\n", bgmac_read(bgmac, ring->mmio_base + BGMAC_DMA_RX_ERROR));
+
+				dma_sync_single_for_device(dma_dev,
+							   slot->dma_addr,
+							   BGMAC_RX_BUF_SIZE,
+							   DMA_FROM_DEVICE);
+				break;
+			}
+
 			/* Check for poison and drop or pass the packet */
 			if (len == 0xdead && flags == 0xbeef) {
 				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
