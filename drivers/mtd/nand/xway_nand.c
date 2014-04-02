@@ -102,7 +102,6 @@ static void xway_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
 	struct nand_chip *this = mtd->priv;
 	unsigned long nandaddr = (unsigned long) this->IO_ADDR_W;
-	unsigned long flags;
 
 	if (ctrl & NAND_CTRL_CHANGE) {
 		if (ctrl & NAND_CLE)
@@ -112,11 +111,9 @@ static void xway_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 	}
 
 	if (cmd != NAND_CMD_NONE) {
-		spin_lock_irqsave(&ebu_lock, flags);
 		writeb(cmd, (void __iomem *) (nandaddr | xway_latchcmd));
 		while ((ltq_ebu_r32(EBU_NAND_WAIT) & NAND_WAIT_WR_C) == 0)
 			;
-		spin_unlock_irqrestore(&ebu_lock, flags);
 	}
 }
 
@@ -129,12 +126,9 @@ static unsigned char xway_read_byte(struct mtd_info *mtd)
 {
 	struct nand_chip *this = mtd->priv;
 	unsigned long nandaddr = (unsigned long) this->IO_ADDR_R;
-	unsigned long flags;
 	int ret;
 
-	spin_lock_irqsave(&ebu_lock, flags);
 	ret = ltq_r8((void __iomem *)(nandaddr | NAND_READ_DATA));
-	spin_unlock_irqrestore(&ebu_lock, flags);
 
 	return ret;
 }
@@ -143,26 +137,20 @@ static void xway_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 {
 	struct nand_chip *this = mtd->priv;
 	unsigned long nandaddr = (unsigned long) this->IO_ADDR_R;
-	unsigned long flags;
 	int i;
 
-	spin_lock_irqsave(&ebu_lock, flags);
 	for (i = 0; i < len; i++)
 		buf[i] = ltq_r8((void __iomem *)(nandaddr | NAND_READ_DATA));
-	spin_unlock_irqrestore(&ebu_lock, flags);
 }
 
 static void xway_write_buf(struct mtd_info *mtd, const u_char *buf, int len)
 {
 	struct nand_chip *this = mtd->priv;
 	unsigned long nandaddr = (unsigned long) this->IO_ADDR_W;
-	unsigned long flags;
 	int i;
 
-	spin_lock_irqsave(&ebu_lock, flags);
 	for (i = 0; i < len; i++)
 		ltq_w8(buf[i], (void __iomem *)nandaddr);
-	spin_unlock_irqrestore(&ebu_lock, flags);
 }
 
 static int xway_nand_probe(struct platform_device *pdev)
