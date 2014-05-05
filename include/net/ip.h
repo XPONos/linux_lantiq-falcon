@@ -184,17 +184,15 @@ extern struct ipv4_config ipv4_config;
 #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
 #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
 
-extern unsigned long snmp_fold_field(void __percpu *mib[], int offt);
+extern unsigned long snmp_fold_field(void __percpu *mib, int offt);
 #if BITS_PER_LONG==32
-extern u64 snmp_fold_field64(void __percpu *mib[], int offt, size_t sync_off);
+extern u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
 #else
-static inline u64 snmp_fold_field64(void __percpu *mib[], int offt, size_t syncp_off)
+static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
 {
 	return snmp_fold_field(mib, offt);
 }
 #endif
-extern int snmp_mib_init(void __percpu *ptr[2], size_t mibsize, size_t align);
-extern void snmp_mib_free(void __percpu *ptr[2]);
 
 extern struct local_ports {
 	seqlock_t	lock;
