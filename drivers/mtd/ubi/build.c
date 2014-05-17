@@ -1207,6 +1207,36 @@ static struct mtd_info * __init open_mtd_device(const char *mtd_dev)
 	return mtd;
 }
 
+/*
+ * This function tries attaching mtd partitions named either "ubi" or "data"
+ * during boot.
+ */
+static void __init ubi_auto_attach(void)
+{
+	int err;
+	struct mtd_info *mtd;
+	/* try attaching mtd device named "ubi" or "data" */
+	mtd = open_mtd_device("ubi");
+	if (IS_ERR(mtd))
+		mtd = open_mtd_device("data");
+
+	if (!IS_ERR(mtd)) {
+		/* auto-add only media types where UBI makes sense */
+		if (mtd->type == MTD_NANDFLASH ||
+		    mtd->type == MTD_DATAFLASH ||
+		    mtd->type == MTD_MLCNANDFLASH) {
+			mutex_lock(&ubi_devices_mutex);
+			ubi_msg("auto-attach mtd%d", mtd->index);
+			err = ubi_attach_mtd_dev(mtd, UBI_DEV_NUM_AUTO, 0, 0);
+			mutex_unlock(&ubi_devices_mutex);
+			if (err < 0) {
+				ubi_err("cannot attach mtd%d", mtd->index);
+				put_mtd_device(mtd);
+			}
+		}
+	}
+}
+
 static int __init ubi_init(void)
 {
 	int err, i, k;
@@ -1289,6 +1319,12 @@ static int __init ubi_init(void)
 				goto out_detach;
 		}
 	}
+
+	/* auto-attach mtd devices only if built-in to the kernel and no ubi.mtd
+	 * parameter was given */
+	if (config_enabled(CONFIG_MTD_ROOTFS_ROOT_DEV) &&
+	    !ubi_is_module() && !mtd_devs)
+		ubi_auto_attach();
 
 	err = ubiblock_init();
 	if (err) {
