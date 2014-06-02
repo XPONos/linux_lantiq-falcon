@@ -1164,6 +1164,9 @@ static int mount_ubifs(struct ubifs_info *c)
 	size_t sz;
 
 	c->ro_mount = !!(c->vfs_sb->s_flags & MS_RDONLY);
+	/* Suppress error messages while probing if MS_SILENT is set */
+	c->probing = !!(c->vfs_sb->s_flags & MS_SILENT);
+
 	err = init_constants_early(c);
 	if (err)
 		return err;
@@ -1228,6 +1231,8 @@ static int mount_ubifs(struct ubifs_info *c)
 	err = ubifs_read_superblock(c);
 	if (err)
 		goto out_free;
+
+	c->probing = 0;
 
 	/*
 	 * Make sure the compressor which is set as default in the superblock
