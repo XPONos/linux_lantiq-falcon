@@ -2443,6 +2443,9 @@ config USE_OF
 	select OF_EARLY_FLATTREE
 	select IRQ_DOMAIN
 
+config BUILTIN_DTB
+	bool
+
 config BOOT_RAW
 	bool "Enable the kernel to be executed from the load address"
 	default n
