@@ -127,9 +127,11 @@ struct nf_bridge_info {
 #endif
 
 struct sk_buff_head {
-	/* These two members must be first. */
-	struct sk_buff	*next;
-	struct sk_buff	*prev;
+	/* These two members must be first to match sk_buff. */
+	struct_group_tagged(sk_buff_list, list,
+		struct sk_buff	*next;
+		struct sk_buff	*prev;
+	);
 
 	__u32		qlen;
 	spinlock_t	lock;
@@ -398,7 +400,7 @@ typedef unsigned char *sk_buff_data_t;
  */
 
 struct sk_buff {
-	/* These two members must be first. */
+	/* These two members must be first to match sk_buff_head. */
 	struct sk_buff		*next;
 	struct sk_buff		*prev;
 
@@ -1085,7 +1087,7 @@ static inline void __skb_insert(struct sk_buff *newsk,
 {
 	newsk->next = next;
 	newsk->prev = prev;
-	next->prev  = prev->next = newsk;
+	((struct sk_buff_list *)next)->prev = ((struct sk_buff_list *)prev)->next = newsk;
 	list->qlen++;
 }
 
@@ -1181,7 +1183,7 @@ static inline void __skb_queue_after(struct sk_buff_head *list,
 				     struct sk_buff *prev,
 				     struct sk_buff *newsk)
 {
-	__skb_insert(newsk, prev, prev->next, list);
+	__skb_insert(newsk, prev, ((struct sk_buff_list *)prev)->next, list);
 }
 
 extern void skb_append(struct sk_buff *old, struct sk_buff *newsk,
@@ -1191,7 +1193,7 @@ static inline void __skb_queue_before(struct sk_buff_head *list,
 				      struct sk_buff *next,
 				      struct sk_buff *newsk)
 {
-	__skb_insert(newsk, next->prev, next, list);
+	__skb_insert(newsk, ((struct sk_buff_list *)next)->prev, next, list);
 }
 
 /**
