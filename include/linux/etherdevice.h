@@ -250,8 +250,7 @@ static inline unsigned long zap_last_2bytes(unsigned long value)
  * Please note that alignment of addr1 & addr2 are only guaranteed to be 16 bits.
  */
 
-static inline bool ether_addr_equal_64bits(const u8 addr1[6+2],
-					   const u8 addr2[6+2])
+static inline bool ether_addr_equal_64bits(const u8 *addr1, const u8 *addr2)
 {
 #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
 	unsigned long fold = ((*(unsigned long *)addr1) ^
