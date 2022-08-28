@@ -61,3 +61,4 @@ obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 obj-$(CONFIG_LEDS_TRIGGERS)		+= trigger/
 obj-$(CONFIG_LEDS_TRIGGER_MORSE)	+= ledtrig-morse.o
 obj-$(CONFIG_LEDS_TRIGGER_NETDEV)	+= ledtrig-netdev.o
+obj-$(CONFIG_LEDS_TRIGGER_USBDEV)	+= ledtrig-usbdev.o
