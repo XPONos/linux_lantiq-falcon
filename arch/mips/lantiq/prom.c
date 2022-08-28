@@ -30,6 +30,10 @@ EXPORT_SYMBOL_GPL(ebu_lock);
  */
 static struct ltq_soc_info soc_info;
 
+/* for Multithreading (APRP), vpe.c will use it */
+//unsigned long physical_memsize = 0;
+unsigned long cp0_memsize = 0;
+
 const char *get_system_type(void)
 {
 	return soc_info.sys_type;
