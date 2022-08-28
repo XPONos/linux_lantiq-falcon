@@ -434,14 +434,12 @@ static struct mtd_part *allocate_partition(struct mtd_info *master,
 	if (slave->offset == MTDPART_OFS_APPEND)
 		slave->offset = cur_offset;
 	if (slave->offset == MTDPART_OFS_NXTBLK) {
-		slave->offset = cur_offset;
-		if (mtd_mod_by_eb(cur_offset, master) != 0) {
-			/* Round up to next erasesize */
-			slave->offset = (mtd_div_by_eb(cur_offset, master) + 1) * master->erasesize;
+		/* Round up to next erasesize */
+		slave->offset = mtd_roundup_to_eb(cur_offset, master);
+		if (slave->offset != cur_offset)
 			printk(KERN_NOTICE "Moving partition %d: "
 			       "0x%012llx -> 0x%012llx\n", partno,
 			       (unsigned long long)cur_offset, (unsigned long long)slave->offset);
-		}
 	}
 	if (slave->offset == MTDPART_OFS_RETAIN) {
 		slave->offset = cur_offset;
@@ -986,6 +984,24 @@ int mtd_is_partition(const struct mtd_info *mtd)
 	return ispart;
 }
 EXPORT_SYMBOL_GPL(mtd_is_partition);
+
+struct mtd_info *mtdpart_get_master(const struct mtd_info *mtd)
+{
+	if (!mtd_is_partition(mtd))
+		return (struct mtd_info *)mtd;
+
+	return PART(mtd)->master;
+}
+EXPORT_SYMBOL_GPL(mtdpart_get_master);
+
+uint64_t mtdpart_get_offset(const struct mtd_info *mtd)
+{
+	if (!mtd_is_partition(mtd))
+		return 0;
+
+	return PART(mtd)->offset;
+}
+EXPORT_SYMBOL_GPL(mtdpart_get_offset);
 
 /* Returns the size of the entire flash chip */
 uint64_t mtd_get_device_size(const struct mtd_info *mtd)
