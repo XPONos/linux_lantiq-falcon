@@ -50,6 +50,10 @@ config MTD_SPLIT_SQUASHFS_ROOT
 
 comment "Firmware partition parsers"
 
+config MTD_SPLIT_SEAMA_FW
+	bool "Seama firmware parser"
+	select MTD_SPLIT
+
 config MTD_SPLIT_UIMAGE_FW
 	bool "uImage based firmware partition parser"
 	select MTD_SPLIT

@@ -7,6 +7,7 @@ obj-$(CONFIG_MTD)		+= mtd.o
 mtd-y				:= mtdcore.o mtdsuper.o mtdconcat.o mtdpart.o mtdchar.o
 
 mtd-$(CONFIG_MTD_SPLIT)		+= mtdsplit.o
+mtd-$(CONFIG_MTD_SPLIT_SEAMA_FW) += mtdsplit_seama.o
 mtd-$(CONFIG_MTD_SPLIT_SQUASHFS_ROOT) += mtdsplit_squashfs.o
 mtd-$(CONFIG_MTD_SPLIT_UIMAGE_FW) += mtdsplit_uimage.o
 
