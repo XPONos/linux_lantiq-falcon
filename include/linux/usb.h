@@ -675,6 +675,7 @@ static inline bool usb_device_supports_ltm(struct usb_device *udev)
 	return udev->bos->ss_cap->bmAttributes & USB_LTM_SUPPORT;
 }
 
+extern struct usb_device *usb_find_device_by_name(const char *name);
 
 /*-------------------------------------------------------------------------*/
 
