@@ -501,6 +501,8 @@ static void exit_mm(struct task_struct * tsk)
 	mm_update_next_owner(mm);
 	mmput(mm);
 }
+EXPORT_SYMBOL_GPL(get_files_struct);
+EXPORT_SYMBOL_GPL(put_files_struct);
 
 /*
  * When we die, we re-parent all our children, and try to:
