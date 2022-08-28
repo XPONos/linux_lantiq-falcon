@@ -58,6 +58,10 @@ config MTD_SPLIT_UIMAGE_FW
 	bool "uImage based firmware partition parser"
 	select MTD_SPLIT
 
+config MTD_SPLIT_LZMA_FW
+	bool "LZMA compressed kernel based firmware partition parser"
+	select MTD_SPLIT
+
 config MTD_SPLIT
 	def_bool n
 	help 
