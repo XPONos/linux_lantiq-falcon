@@ -8,6 +8,7 @@ mtd-y				:= mtdcore.o mtdsuper.o mtdconcat.o mtdpart.o mtdchar.o
 
 mtd-$(CONFIG_MTD_SPLIT)		+= mtdsplit.o
 mtd-$(CONFIG_MTD_SPLIT_SQUASHFS_ROOT) += mtdsplit_squashfs.o
+mtd-$(CONFIG_MTD_SPLIT_UIMAGE_FW) += mtdsplit_uimage.o
 
 obj-$(CONFIG_MTD_OF_PARTS)	+= ofpart.o
 obj-$(CONFIG_MTD_REDBOOT_PARTS) += redboot.o
