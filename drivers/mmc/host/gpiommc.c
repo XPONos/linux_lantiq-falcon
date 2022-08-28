@@ -144,6 +144,8 @@ struct gpiommc_configfs_device {
 	struct platform_device *pdev;
 	/* The configuration */
 	struct gpiommc_platform_data pdata;
+	/* Mutex to protect this structure */
+	struct mutex mutex;
 };
 
 #define GPIO_INVALID	-1
@@ -234,6 +236,8 @@ static ssize_t gpiommc_config_attr_show(struct config_item *item,
 	unsigned int gpio;
 	int err = 0;
 
+	mutex_lock(&dev->mutex);
+
 	if (attr == &gpiommc_attr_DI) {
 		gpio = dev->pdata.pins.gpio_di;
 		if (gpio == GPIO_INVALID)
@@ -294,6 +298,8 @@ static ssize_t gpiommc_config_attr_show(struct config_item *item,
 	WARN_ON(1);
 	err = -ENOSYS;
 out:
+	mutex_unlock(&dev->mutex);
+
 	return err ? err : count;
 }
 
@@ -352,6 +358,8 @@ static ssize_t gpiommc_config_attr_store(struct config_item *item,
 	struct gpiommc_configfs_device *dev = ci_to_gpiommc(item);
 	int err = -EINVAL;
 	unsigned long data;
+
+	mutex_lock(&dev->mutex);
 
 	if (attr == &gpiommc_attr_register) {
 		err = kstrtoul(page, 10, &data);
@@ -478,6 +486,8 @@ static ssize_t gpiommc_config_attr_store(struct config_item *item,
 	WARN_ON(1);
 	err = -ENOSYS;
 out:
+	mutex_unlock(&dev->mutex);
+
 	return err ? err : count;
 }
 
@@ -514,6 +524,7 @@ static struct config_item *gpiommc_make_item(struct config_group *group,
 	if (!dev)
 		return NULL;
 
+	mutex_init(&dev->mutex);
 	config_item_init_type_name(&dev->item, name,
 				   &gpiommc_dev_ci_type);
 
