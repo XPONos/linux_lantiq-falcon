@@ -115,6 +115,7 @@ struct packet_sock {
 	unsigned int		tp_tstamp;
 	struct net_device __rcu	*cached_dev;
 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+	unsigned int		pkt_type;
 };
 
 static struct packet_sock *pkt_sk(struct sock *sk)
