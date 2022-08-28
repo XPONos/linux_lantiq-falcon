@@ -22,7 +22,6 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/device.h>
-#include <linux/sysdev.h>
 #include <linux/netdevice.h>
 #include <linux/timer.h>
 #include <linux/ctype.h>
@@ -294,8 +293,9 @@ done:
 static void netdev_trig_timer(unsigned long arg)
 {
 	struct led_netdev_data *trigger_data = (struct led_netdev_data *)arg;
-	const struct net_device_stats *dev_stats;
+	struct rtnl_link_stats64 *dev_stats;
 	unsigned new_activity;
+	struct rtnl_link_stats64 temp;
 
 	write_lock(&trigger_data->lock);
 
@@ -305,7 +305,7 @@ static void netdev_trig_timer(unsigned long arg)
 		goto no_restart;
 	}
 
-	dev_stats = dev_get_stats(trigger_data->net_dev);
+	dev_stats = dev_get_stats(trigger_data->net_dev, &temp);
 	new_activity =
 		((trigger_data->mode & MODE_TX) ? dev_stats->tx_packets : 0) +
 		((trigger_data->mode & MODE_RX) ? dev_stats->rx_packets : 0);
