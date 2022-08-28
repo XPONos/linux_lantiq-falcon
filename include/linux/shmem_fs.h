@@ -47,6 +47,8 @@ extern int shmem_init(void);
 extern int shmem_fill_super(struct super_block *sb, void *data, int silent);
 extern struct file *shmem_file_setup(const char *name,
 					loff_t size, unsigned long flags);
+
+extern void shmem_set_file(struct vm_area_struct *vma, struct file *file);
 extern int shmem_zero_setup(struct vm_area_struct *);
 extern int shmem_lock(struct file *file, int lock, struct user_struct *user);
 extern void shmem_unlock_mapping(struct address_space *mapping);

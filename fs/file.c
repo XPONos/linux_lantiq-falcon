@@ -218,6 +218,7 @@ static inline void __set_open_fd(int fd, struct fdtable *fdt)
 {
 	__set_bit(fd, fdt->open_fds);
 }
+EXPORT_SYMBOL_GPL(expand_files);
 
 static inline void __clear_open_fd(int fd, struct fdtable *fdt)
 {
