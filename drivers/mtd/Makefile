@@ -10,6 +10,7 @@ mtd-$(CONFIG_MTD_SPLIT)		+= mtdsplit.o
 mtd-$(CONFIG_MTD_SPLIT_SEAMA_FW) += mtdsplit_seama.o
 mtd-$(CONFIG_MTD_SPLIT_SQUASHFS_ROOT) += mtdsplit_squashfs.o
 mtd-$(CONFIG_MTD_SPLIT_UIMAGE_FW) += mtdsplit_uimage.o
+mtd-$(CONFIG_MTD_SPLIT_LZMA_FW) += mtdsplit_lzma.o
 
 obj-$(CONFIG_MTD_OF_PARTS)	+= ofpart.o
 obj-$(CONFIG_MTD_REDBOOT_PARTS) += redboot.o
