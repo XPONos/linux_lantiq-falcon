@@ -27,6 +27,8 @@
 #include <asm/inst.h>
 #include <asm/local.h>
 
+#ifdef CONFIG_MIPS_FPU_EMU
+
 #ifdef CONFIG_DEBUG_FS
 
 struct mips_fpu_emulator_stats {
@@ -60,6 +62,38 @@ extern int fpu_emulator_cop1Handler(struct pt_regs *xcp,
 int process_fpemu_return(int sig, void __user *fault_addr);
 int mm_isBranchInstr(struct pt_regs *regs, struct mm_decoded_insn dec_insn,
 		     unsigned long *contpc);
+#else
+static inline int mips_dsemul(struct pt_regs *regs, mips_instruction ir,
+			      unsigned long cpc)
+{
+	return 0;
+}
+
+static inline int do_dsemulret(struct pt_regs *xcp)
+{
+	return 0;
+}
+
+static inline int fpu_emulator_cop1Handler(struct pt_regs *xcp,
+					   struct mips_fpu_struct *ctx,
+					   int has_fpu,
+					   void *__user *fault_addr)
+{
+	return 0;
+}
+
+static inline int process_fpemu_return(int sig, void __user *fault_addr)
+{
+	return -EINVAL;
+}
+
+static inline int mm_isBranchInstr(struct pt_regs *regs,
+				   struct mm_decoded_insn dec_insn,
+				   unsigned long *contpc)
+{
+	return 0;
+}
+#endif /* CONFIG_MIPS_FPU_EMU */
 
 /*
  * Instruction inserted following the badinst to further tag the sequence
