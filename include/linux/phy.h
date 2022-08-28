@@ -408,8 +408,17 @@ struct phy_driver {
 	 */
 	int (*config_aneg)(struct phy_device *phydev);
 
+	/* Determine if autonegotiation is done */
+	int (*aneg_done)(struct phy_device *phydev);
+
 	/* Determines the negotiated speed and duplex */
 	int (*read_status)(struct phy_device *phydev);
+
+	/* 
+	 * Update the value in phydev->link to reflect the 
+	 * current link value
+	 */
+	int (*update_link)(struct phy_device *phydev);
 
 	/* Clears any pending interrupts */
 	int (*ack_interrupt)(struct phy_device *phydev);
