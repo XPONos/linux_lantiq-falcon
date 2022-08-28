@@ -84,6 +84,10 @@ static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
 		err = -EACCES;
 		goto errout;
 
+	case FR_ACT_FAILED_POLICY:
+		err = -EPERM;
+		goto errout;
+
 	case FR_ACT_BLACKHOLE:
 	default:
 		err = -EINVAL;
