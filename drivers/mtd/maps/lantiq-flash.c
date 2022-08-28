@@ -117,6 +117,11 @@ ltq_mtd_probe(struct platform_device *pdev)
 	struct cfi_private *cfi;
 	int err;
 
+	static const char *rom_probe_types[] = {
+		"cfi_probe", "jedec_probe", NULL
+	};
+	const char **type;
+
 	if (of_machine_is_compatible("lantiq,falcon") &&
 			(ltq_boot_select() != BS_FLASH)) {
 		dev_err(&pdev->dev, "invalid bootstrap options\n");
@@ -154,7 +159,11 @@ ltq_mtd_probe(struct platform_device *pdev)
 	ltq_mtd->map->copy_to = ltq_copy_to;
 
 	ltq_mtd->map->map_priv_1 = LTQ_NOR_PROBING;
-	ltq_mtd->mtd = do_map_probe("cfi_probe", ltq_mtd->map);
+
+	for (type = rom_probe_types; !ltq_mtd->mtd && *type; type++) {
+		ltq_mtd->mtd = do_map_probe(*type, ltq_mtd->map);
+	}
+ 
 	ltq_mtd->map->map_priv_1 = LTQ_NOR_NORMAL;
 
 	if (!ltq_mtd->mtd) {
