@@ -159,6 +159,22 @@ BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
 BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
 BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
 
+static ssize_t show_isolate_mode(struct net_bridge_port *p, char *buf)
+{
+	int isolate_mode = (p->flags & BR_ISOLATE_MODE) ? 1 : 0;
+	return sprintf(buf, "%d\n", isolate_mode);
+}
+static ssize_t store_isolate_mode(struct net_bridge_port *p, unsigned long v)
+{
+	if (v)
+		p->flags |= BR_ISOLATE_MODE;
+	else
+		p->flags &= ~BR_ISOLATE_MODE;
+	return 0;
+}
+static BRPORT_ATTR(isolate_mode, S_IRUGO | S_IWUSR,
+		   show_isolate_mode, store_isolate_mode);
+
 #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
 static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
 {
@@ -199,6 +215,7 @@ static const struct brport_attribute *brport_attrs[] = {
 	&brport_attr_multicast_router,
 	&brport_attr_multicast_fast_leave,
 #endif
+	&brport_attr_isolate_mode,
 	NULL
 };
 
