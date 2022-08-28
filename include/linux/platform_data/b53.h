@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2008 Atheros Communications Inc.
- * Copyright (c) 2009 Gabor Juhos <juhosg@openwrt.org>
- * Copyright (c) 2009 Imre Kaloz <kaloz@openwrt.org>
+ * B53 platform data
+ *
+ * Copyright (C) 2013 Jonas Gorski <jogo@openwrt.org>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,34 +16,21 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _LINUX_ATH9K_PLATFORM_H
-#define _LINUX_ATH9K_PLATFORM_H
+#ifndef __B53_H
+#define __B53_H
 
-#define ATH9K_PLAT_EEP_MAX_WORDS	2048
+#include <linux/kernel.h>
 
-struct ath9k_platform_data {
-	const char *eeprom_name;
+struct b53_platform_data {
+	u32 chip_id;
+	u16 enabled_ports;
 
-	u16 eeprom_data[ATH9K_PLAT_EEP_MAX_WORDS];
-	u8 *macaddr;
+	/* allow to specify an ethX alias */
+	const char *alias;
 
-	int led_pin;
-	u32 gpio_mask;
-	u32 gpio_val;
-
-	bool endian_check;
-	bool is_clk_25mhz;
-	bool tx_gain_buffalo;
-	bool disable_2ghz;
-	bool disable_5ghz;
-
-	int (*get_mac_revision)(void);
-	int (*external_reset)(void);
-
-	bool use_eeprom;
-
-	int num_leds;
-	const struct gpio_led *leds;
+	/* only used by MMAP'd driver */
+	unsigned big_endian:1;
+	void __iomem *regs;
 };
 
-#endif /* _LINUX_ATH9K_PLATFORM_H */
+#endif
