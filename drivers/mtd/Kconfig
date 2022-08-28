@@ -36,6 +36,11 @@ config MTD_UIMAGE_SPLIT
 	depends on MTD_SPLIT_FIRMWARE
 	default y
 
+config MTD_SPLIT
+	def_bool n
+	help 
+	  Generic MTD split support.
+
 endmenu
 
 config MTD_TESTS
