@@ -989,6 +989,13 @@ config NETFILTER_XT_MATCH_HL
 	in the IPv6 header, or the time-to-live field in the IPv4
 	header of the packet.
 
+config NETFILTER_XT_MATCH_ID
+	tristate '"id" match support'
+	depends on NETFILTER_ADVANCED
+	---help---
+	This option adds a `id' dummy-match, which allows you to put
+	numeric IDs into your iptables ruleset.
+
 config NETFILTER_XT_MATCH_IPRANGE
 	tristate '"iprange" address range match support'
 	depends on NETFILTER_ADVANCED
