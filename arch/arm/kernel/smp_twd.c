@@ -188,7 +188,7 @@ core_initcall(twd_cpufreq_init);
 
 #endif
 
-static void __cpuinit twd_calibrate_rate(void)
+static int twd_calibrate_rate(void)
 {
 	unsigned long count;
 	u64 waitjiffies;
@@ -225,7 +225,10 @@ static void __cpuinit twd_calibrate_rate(void)
 		printk("%lu.%02luMHz.\n", twd_timer_rate / 1000000,
 			(twd_timer_rate / 10000) % 100);
 	}
+	return 0;
 }
+
+device_initcall(twd_calibrate_rate);
 
 static irqreturn_t twd_handler(int irq, void *dev_id)
 {
