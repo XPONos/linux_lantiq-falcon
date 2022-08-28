@@ -44,6 +44,7 @@ static void quirk_mmio_always_on(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_ANY_ID, PCI_ANY_ID,
 				PCI_CLASS_BRIDGE_HOST, 8, quirk_mmio_always_on);
 
+#ifndef CONFIG_PCI_DISABLE_COMMON_QUIRKS
 /* The Mellanox Tavor device gives false positive parity errors
  * Mark this device with a broken_parity_status, to allow
  * PCI scanning code to "skip" this now blacklisted device.
@@ -2866,6 +2867,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x65f8, quirk_intel_mc_errata);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x65f9, quirk_intel_mc_errata);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x65fa, quirk_intel_mc_errata);
 
+#endif /* !CONFIG_PCI_DISABLE_COMMON_QUIRKS */
 
 static ktime_t fixup_debug_start(struct pci_dev *dev,
 				 void (*fn)(struct pci_dev *dev))
@@ -2896,6 +2898,8 @@ static void fixup_debug_report(struct pci_dev *dev, ktime_t calltime,
 			 fn, duration, dev_name(&dev->dev));
 	}
 }
+
+#ifndef CONFIG_PCI_DISABLE_COMMON_QUIRKS
 
 /*
  * Some BIOS implementations leave the Intel GPU interrupts enabled,
@@ -2931,6 +2935,8 @@ static void disable_igfx_irq(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0102, disable_igfx_irq);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x010a, disable_igfx_irq);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0152, disable_igfx_irq);
+
+#endif /* !CONFIG_PCI_DISABLE_COMMON_QUIRKS */
 
 /*
  * Some devices may pass our check in pci_intx_mask_supported if
