@@ -144,6 +144,11 @@ config RTL8306_PHY
 	tristate "Driver for Realtek RTL8306S switches"
 	select SWCONFIG
 
+config MICREL_PHY
+	tristate "Drivers for Micrel/Kendin PHYs"
+	---help---
+	  Currently has a driver for the KSZ8041
+
 config FIXED_PHY
 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
 	depends on PHYLIB=y
