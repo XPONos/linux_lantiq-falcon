@@ -616,7 +616,7 @@ out_register:
 }
 
 
-static int
+int
 __mtd_add_partition(struct mtd_info *master, char *name,
 		    long long offset, long long length, bool dup_check)
 {
@@ -737,7 +737,7 @@ run_parsers_by_type(struct mtd_part *slave, enum mtd_parser_type type)
 	return nr_parts;
 }
 
-static inline unsigned long
+unsigned long
 mtd_pad_erasesize(struct mtd_info *mtd, int offset, int len)
 {
 	unsigned long mask = mtd->erasesize - 1;
@@ -806,7 +806,6 @@ static void split_uimage(struct mtd_info *master, struct mtd_part *part)
 		return;
 
 	len = be32_to_cpu(hdr.size) + 0x40;
-	len = mtd_pad_erasesize(master, part->offset, len);
 	if (len + master->erasesize > part->mtd.size)
 		return;
 
