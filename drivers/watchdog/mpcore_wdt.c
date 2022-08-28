@@ -101,9 +101,7 @@ static void mpcore_wdt_keepalive(struct mpcore_wdt *wdt)
 
 	spin_lock(&wdt_lock);
 	/* Assume prescale is set to 256 */
-	count =  __raw_readl(wdt->base + TWD_WDOG_COUNTER);
-	count = (0xFFFFFFFFU - count) * (HZ / 5);
-	count = (count / 256) * mpcore_margin;
+	count = (twd_timer_get_rate() / 256) * mpcore_margin;
 
 	/* Reload the counter */
 	writel(count + wdt->perturb, wdt->base + TWD_WDOG_LOAD);
