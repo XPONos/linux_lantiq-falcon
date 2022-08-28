@@ -148,6 +148,7 @@ pid_t f_getown(struct file *filp)
 	read_unlock(&filp->f_owner.lock);
 	return pid;
 }
+EXPORT_SYMBOL(sys_dup);
 
 static int f_setown_ex(struct file *filp, unsigned long arg)
 {
