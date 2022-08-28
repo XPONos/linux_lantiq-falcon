@@ -69,18 +69,6 @@ static u16 bcma_cc_core_id(struct bcma_bus *bus)
 	return BCMA_CORE_CHIPCOMMON;
 }
 
-struct bcma_device *bcma_find_core(struct bcma_bus *bus, u16 coreid)
-{
-	struct bcma_device *core;
-
-	list_for_each_entry(core, &bus->cores, list) {
-		if (core->id.id == coreid)
-			return core;
-	}
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(bcma_find_core);
-
 struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
 					u8 unit)
 {
@@ -91,6 +79,26 @@ struct bcma_device *bcma_find_core_unit(struct bcma_bus *bus, u16 coreid,
 			return core;
 	}
 	return NULL;
+}
+EXPORT_SYMBOL_GPL(bcma_find_core_unit);
+
+bool bcma_wait_value(struct bcma_device *core, u16 reg, u32 mask, u32 value,
+		     int timeout)
+{
+	unsigned long deadline = jiffies + timeout;
+	u32 val;
+
+	do {
+		val = bcma_read32(core, reg);
+		if ((val & mask) == value)
+			return true;
+		cpu_relax();
+		udelay(10);
+	} while (!time_after_eq(jiffies, deadline));
+
+	bcma_warn(core->bus, "Timeout waiting for register 0x%04X!\n", reg);
+
+	return false;
 }
 
 static void bcma_release_core_dev(struct device *dev)
@@ -115,6 +123,7 @@ static int bcma_register_cores(struct bcma_bus *bus)
 		case BCMA_CORE_CHIPCOMMON:
 		case BCMA_CORE_PCI:
 		case BCMA_CORE_PCIE:
+		case BCMA_CORE_PCIE2:
 		case BCMA_CORE_MIPS_74K:
 		case BCMA_CORE_4706_MAC_GBIT_COMMON:
 			continue;
@@ -148,6 +157,7 @@ static int bcma_register_cores(struct bcma_bus *bus)
 			bcma_err(bus,
 				 "Could not register dev for core 0x%03X\n",
 				 core->id.id);
+			put_device(&core->dev);
 			continue;
 		}
 		core->dev_registered = true;
@@ -218,7 +228,7 @@ int bcma_bus_register(struct bcma_bus *bus)
 	err = bcma_bus_scan(bus);
 	if (err) {
 		bcma_err(bus, "Failed to scan: %d\n", err);
-		return -1;
+		return err;
 	}
 
 	/* Early init CC core */
@@ -261,6 +271,13 @@ int bcma_bus_register(struct bcma_bus *bus)
 	if (core) {
 		bus->drv_pci[1].core = core;
 		bcma_core_pci_init(&bus->drv_pci[1]);
+	}
+
+	/* Init PCIe Gen 2 core */
+	core = bcma_find_core_unit(bus, BCMA_CORE_PCIE2, 0);
+	if (core) {
+		bus->drv_pcie2.core = core;
+		bcma_core_pcie2_init(&bus->drv_pcie2);
 	}
 
 	/* Init GBIT MAC COMMON core */
