@@ -14,6 +14,48 @@
 #include "yaffs_guts.h"
 #include "yaffs_attribs.h"
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+static inline uid_t ia_uid_read(const struct iattr *iattr)
+{
+	return from_kuid(&init_user_ns, iattr->ia_uid);
+}
+
+static inline gid_t ia_gid_read(const struct iattr *iattr)
+{
+	return from_kgid(&init_user_ns, iattr->ia_gid);
+}
+
+static inline void ia_uid_write(struct iattr *iattr, uid_t uid)
+{
+	iattr->ia_uid = make_kuid(&init_user_ns, uid);
+}
+
+static inline void ia_gid_write(struct iattr *iattr, gid_t gid)
+{
+	iattr->ia_gid = make_kgid(&init_user_ns, gid);
+}
+#else
+static inline uid_t ia_uid_read(const struct iattr *iattr)
+{
+	return iattr->ia_uid;
+}
+
+static inline gid_t ia_gid_read(const struct iattr *inode)
+{
+	return iattr->ia_gid;
+}
+
+static inline void ia_uid_write(struct iattr *iattr, uid_t uid)
+{
+	iattr->ia_uid = uid;
+}
+
+static inline void ia_gid_write(struct iattr *iattr, gid_t gid)
+{
+	iattr->ia_gid = gid;
+}
+#endif
+
 void yaffs_load_attribs(struct yaffs_obj *obj, struct yaffs_obj_hdr *oh)
 {
 	obj->yst_uid = oh->yst_uid;
@@ -77,9 +119,9 @@ int yaffs_set_attribs(struct yaffs_obj *obj, struct iattr *attr)
 	if (valid & ATTR_MODE)
 		obj->yst_mode = attr->ia_mode;
 	if (valid & ATTR_UID)
-		obj->yst_uid = attr->ia_uid;
+		obj->yst_uid =  ia_uid_read(attr);
 	if (valid & ATTR_GID)
-		obj->yst_gid = attr->ia_gid;
+		obj->yst_gid =  ia_gid_read(attr);
 
 	if (valid & ATTR_ATIME)
 		obj->yst_atime = Y_TIME_CONVERT(attr->ia_atime);
@@ -103,9 +145,9 @@ int yaffs_get_attribs(struct yaffs_obj *obj, struct iattr *attr)
 
 	attr->ia_mode = obj->yst_mode;
 	valid |= ATTR_MODE;
-	attr->ia_uid = obj->yst_uid;
+	ia_uid_write(attr, obj->yst_uid);
 	valid |= ATTR_UID;
-	attr->ia_gid = obj->yst_gid;
+	ia_gid_write(attr, obj->yst_gid);
 	valid |= ATTR_GID;
 
 	Y_TIME_CONVERT(attr->ia_atime) = obj->yst_atime;
