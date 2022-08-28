@@ -195,7 +195,6 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		list_add_tail(&flow->flowchain, &q->new_flows);
 		q->new_flow_count++;
 		flow->deficit = q->quantum;
-		flow->dropped = 0;
 	}
 	if (++sch->q.qlen <= sch->limit)
 		return NET_XMIT_SUCCESS;
