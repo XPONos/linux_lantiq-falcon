@@ -39,6 +39,8 @@ char *mips_get_machine_name(void)
 	return mips_machine_name;
 }
 
+unsigned long physical_memsize = 0L;
+
 #ifdef CONFIG_OF
 int __init early_init_dt_scan_memory_arch(unsigned long node,
 					  const char *uname, int depth,
@@ -50,6 +52,7 @@ int __init early_init_dt_scan_memory_arch(unsigned long node,
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
 	return add_memory_region(base, size, BOOT_MEM_RAM);
+	physical_memsize = size;
 }
 
 void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
