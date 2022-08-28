@@ -64,6 +64,10 @@ enum {
 	FR_ACT_BLACKHOLE,	/* Drop without notification */
 	FR_ACT_UNREACHABLE,	/* Drop with ENETUNREACH */
 	FR_ACT_PROHIBIT,	/* Drop with EACCES */
+	FR_ACT_RES9,
+	FR_ACT_RES10,
+	FR_ACT_RES11,
+	FR_ACT_FAILED_POLICY,	/* Drop with EPERM */
 	__FR_ACT_MAX,
 };
 

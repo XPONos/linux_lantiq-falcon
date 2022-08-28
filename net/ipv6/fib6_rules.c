@@ -69,6 +69,9 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
 	case FR_ACT_PROHIBIT:
 		rt = net->ipv6.ip6_prohibit_entry;
 		goto discard_pkt;
+	case FR_ACT_FAILED_POLICY:
+		rt = net->ipv6.ip6_failed_policy_entry;
+		goto discard_pkt;
 	}
 
 	table = fib6_get_table(net, rule->table);
