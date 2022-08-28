@@ -139,6 +139,9 @@
  * that might otherwise be identical and have very little entropy
  * available to them (particularly common in the embedded world).
  *
+ *      void random_input_words(__u32 *buf, size_t wordcount, int ent_count)
+ *      int random_input_wait(void);
+ *
  * add_input_randomness() uses the input layer interrupt timing, as well as
  * the event type information from the hardware.
  *
@@ -151,6 +154,13 @@
  * entropy pool. Note that high-speed solid state drives with very low
  * seek times do not make for good sources of entropy, as their seek
  * times are usually fairly consistent.
+ *
+ * random_input_words() just provides a raw block of entropy to the input
+ * pool, such as from a hardware entropy generator.
+ *
+ * random_input_wait() suspends the caller until such time as the
+ * entropy pool falls below the write threshold, and returns a count of how
+ * much entropy (in bits) is needed to sustain the pool.
  *
  * All of these routines try to estimate how many bits of randomness a
  * particular randomness source.  They do this by keeping track of the
@@ -795,6 +805,63 @@ void add_disk_randomness(struct gendisk *disk)
 	add_timer_randomness(disk->random, 0x100 + disk_devt(disk));
 }
 #endif
+
+/*
+ * random_input_words - add bulk entropy to pool
+ *
+ * @buf: buffer to add
+ * @wordcount: number of __u32 words to add
+ * @ent_count: total amount of entropy (in bits) to credit
+ *
+ * this provides bulk input of entropy to the input pool
+ *
+ */
+void random_input_words(__u32 *buf, size_t wordcount, int ent_count)
+{
+	mix_pool_bytes(&input_pool, buf, wordcount*4, NULL);
+
+	credit_entropy_bits(&input_pool, ent_count);
+
+	DEBUG_ENT("crediting %d bits => %d\n",
+		  ent_count, input_pool.entropy_count);
+	/*
+	 * Wake up waiting processes if we have enough
+	 * entropy.
+	 */
+	if (input_pool.entropy_count >= random_read_wakeup_thresh)
+		wake_up_interruptible(&random_read_wait);
+}
+EXPORT_SYMBOL(random_input_words);
+
+/*
+ * random_input_wait - wait until random needs entropy
+ *
+ * this function sleeps until the /dev/random subsystem actually
+ * needs more entropy, and then return the amount of entropy
+ * that it would be nice to have added to the system.
+ */
+int random_input_wait(void)
+{
+	int count;
+
+	wait_event_interruptible(random_write_wait, 
+			 input_pool.entropy_count < random_write_wakeup_thresh);
+
+	count = random_write_wakeup_thresh - input_pool.entropy_count;
+
+        /* likely we got woken up due to a signal */
+	if (count <= 0) count = random_read_wakeup_thresh; 
+
+	DEBUG_ENT("requesting %d bits from input_wait()er %d<%d\n",
+		  count,
+		  input_pool.entropy_count, random_write_wakeup_thresh);
+
+	return count;
+}
+EXPORT_SYMBOL(random_input_wait);
+
+
+#define EXTRACT_SIZE 10
 
 /*********************************************************************
  *
