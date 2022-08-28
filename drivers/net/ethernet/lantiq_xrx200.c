@@ -16,6 +16,7 @@
  *   Copyright (C) 2012 John Crispin <blogic@openwrt.org>
  */
 
+#include <linux/switch.h>
 #include <linux/etherdevice.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -31,6 +32,7 @@
 #include <lantiq_soc.h>
 
 #include "lantiq_pce.h"
+#include "lantiq_xrx200_sw.h"
 
 #define SW_POLLING
 #define SW_ROUTING
@@ -46,6 +48,10 @@
 #define XRX200_MAX_DEV		1
 #endif
 
+#define XRX200_MAX_VLAN		64
+#define XRX200_PCE_ACTVLAN_IDX	0x01
+#define XRX200_PCE_VLANMAP_IDX	0x02
+
 #define XRX200_MAX_PORT		7
 #define XRX200_MAX_DMA		8
 
@@ -58,7 +64,6 @@
 #define XRX200_PORT_TYPE_MAC	2
 
 /* DMA */
-#define XRX200_DMA_CRC_LEN	0x4
 #define XRX200_DMA_DATA_LEN	0x600
 #define XRX200_DMA_IRQ		INT_NUM_IM2_IRL0
 #define XRX200_DMA_RX		0
@@ -225,6 +230,8 @@ struct xrx200_hw {
 	unsigned short wan_map;
 
 	spinlock_t lock;
+
+	struct switch_dev swdev;
 };
 
 struct xrx200_priv {
@@ -233,7 +240,8 @@ struct xrx200_priv {
 
 	struct xrx200_port port[XRX200_MAX_PORT];
 	int num_port;
-	int wan;
+	bool wan;
+	bool sw;
 	unsigned short port_map;
 	unsigned char mac[6];
 
@@ -264,6 +272,585 @@ static __iomem void *xrx200_pmac_membase;
 #define ltq_pmac_w32(x, y)	ltq_w32(x, xrx200_pmac_membase + (y))
 #define ltq_pmac_w32_mask(x, y, z) \
 			ltq_w32_mask(x, y, xrx200_pmac_membase + (z))
+
+#define XRX200_GLOBAL_REGATTR(reg) \
+	.id = reg, \
+	.type = SWITCH_TYPE_INT, \
+	.set = xrx200_set_global_attr, \
+	.get = xrx200_get_global_attr
+
+#define XRX200_PORT_REGATTR(reg) \
+	.id = reg, \
+	.type = SWITCH_TYPE_INT, \
+	.set = xrx200_set_port_attr, \
+	.get = xrx200_get_port_attr
+
+static int xrx200sw_read_x(int reg, int x)
+{
+	int value, mask, addr;
+
+	addr = xrx200sw_reg[reg].offset + (xrx200sw_reg[reg].mult * x);
+	value = ltq_switch_r32(addr);
+	mask = (1 << xrx200sw_reg[reg].size) - 1;
+	value = (value >> xrx200sw_reg[reg].shift);
+
+	return (value & mask);
+}
+
+static int xrx200sw_read(int reg)
+{
+	return xrx200sw_read_x(reg, 0);
+}
+
+static void xrx200sw_write_x(int value, int reg, int x)
+{
+	int mask, addr;
+
+	addr = xrx200sw_reg[reg].offset + (xrx200sw_reg[reg].mult * x);
+	mask = (1 << xrx200sw_reg[reg].size) - 1;
+	mask = (mask << xrx200sw_reg[reg].shift);
+	value = (value << xrx200sw_reg[reg].shift) & mask;
+
+	ltq_switch_w32_mask(mask, value, addr);
+}
+
+static void xrx200sw_write(int value, int reg)
+{
+	xrx200sw_write_x(value, reg, 0);
+}
+
+struct xrx200_pce_table_entry {
+	int index;	// PCE_TBL_ADDR.ADDR = pData->table_index
+	int table; 	// PCE_TBL_CTRL.ADDR = pData->table
+	unsigned short key[8];
+	unsigned short val[5];
+	unsigned short mask;
+	unsigned short type;
+	unsigned short valid;
+	unsigned short gmap;
+};
+
+static int xrx200_pce_table_entry_read(struct xrx200_pce_table_entry *tbl)
+{
+	// wait until hardware is ready
+	while (xrx200sw_read(XRX200_PCE_TBL_CTRL_BAS)) {};
+
+	// prepare the table access:
+	// PCE_TBL_ADDR.ADDR = pData->table_index
+	xrx200sw_write(tbl->index, XRX200_PCE_TBL_ADDR_ADDR);
+	// PCE_TBL_CTRL.ADDR = pData->table
+	xrx200sw_write(tbl->table, XRX200_PCE_TBL_CTRL_ADDR);
+
+	//(address-based read)
+	xrx200sw_write(0, XRX200_PCE_TBL_CTRL_OPMOD); // OPMOD_ADRD
+
+	xrx200sw_write(1, XRX200_PCE_TBL_CTRL_BAS); // start access
+
+	// wait until hardware is ready
+	while (xrx200sw_read(XRX200_PCE_TBL_CTRL_BAS)) {};
+
+	// read the keys
+	tbl->key[7] = xrx200sw_read(XRX200_PCE_TBL_KEY_7);
+	tbl->key[6] = xrx200sw_read(XRX200_PCE_TBL_KEY_6);
+	tbl->key[5] = xrx200sw_read(XRX200_PCE_TBL_KEY_5);
+	tbl->key[4] = xrx200sw_read(XRX200_PCE_TBL_KEY_4);
+	tbl->key[3] = xrx200sw_read(XRX200_PCE_TBL_KEY_3);
+	tbl->key[2] = xrx200sw_read(XRX200_PCE_TBL_KEY_2);
+	tbl->key[1] = xrx200sw_read(XRX200_PCE_TBL_KEY_1);
+	tbl->key[0] = xrx200sw_read(XRX200_PCE_TBL_KEY_0);
+
+	// read the values
+	tbl->val[4] = xrx200sw_read(XRX200_PCE_TBL_VAL_4);
+	tbl->val[3] = xrx200sw_read(XRX200_PCE_TBL_VAL_3);
+	tbl->val[2] = xrx200sw_read(XRX200_PCE_TBL_VAL_2);
+	tbl->val[1] = xrx200sw_read(XRX200_PCE_TBL_VAL_1);
+	tbl->val[0] = xrx200sw_read(XRX200_PCE_TBL_VAL_0);
+
+	// read the mask
+	tbl->mask = xrx200sw_read(XRX200_PCE_TBL_MASK_0);
+	// read the type
+	tbl->type = xrx200sw_read(XRX200_PCE_TBL_CTRL_TYPE);
+	// read the valid flag
+	tbl->valid = xrx200sw_read(XRX200_PCE_TBL_CTRL_VLD);
+	// read the group map
+	tbl->gmap = xrx200sw_read(XRX200_PCE_TBL_CTRL_GMAP);
+
+	return 0;
+}
+
+static int xrx200_pce_table_entry_write(struct xrx200_pce_table_entry *tbl)
+{
+	// wait until hardware is ready
+	while (xrx200sw_read(XRX200_PCE_TBL_CTRL_BAS)) {};
+
+	// prepare the table access:
+	// PCE_TBL_ADDR.ADDR = pData->table_index
+	xrx200sw_write(tbl->index, XRX200_PCE_TBL_ADDR_ADDR);
+	// PCE_TBL_CTRL.ADDR = pData->table
+	xrx200sw_write(tbl->table, XRX200_PCE_TBL_CTRL_ADDR);
+
+	//(address-based write)
+	xrx200sw_write(1, XRX200_PCE_TBL_CTRL_OPMOD); // OPMOD_ADRD
+
+	// read the keys
+	xrx200sw_write(tbl->key[7], XRX200_PCE_TBL_KEY_7);
+	xrx200sw_write(tbl->key[6], XRX200_PCE_TBL_KEY_6);
+	xrx200sw_write(tbl->key[5], XRX200_PCE_TBL_KEY_5);
+	xrx200sw_write(tbl->key[4], XRX200_PCE_TBL_KEY_4);
+	xrx200sw_write(tbl->key[3], XRX200_PCE_TBL_KEY_3);
+	xrx200sw_write(tbl->key[2], XRX200_PCE_TBL_KEY_2);
+	xrx200sw_write(tbl->key[1], XRX200_PCE_TBL_KEY_1);
+	xrx200sw_write(tbl->key[0], XRX200_PCE_TBL_KEY_0);
+
+	// read the values
+	xrx200sw_write(tbl->val[4], XRX200_PCE_TBL_VAL_4);
+	xrx200sw_write(tbl->val[3], XRX200_PCE_TBL_VAL_3);
+	xrx200sw_write(tbl->val[2], XRX200_PCE_TBL_VAL_2);
+	xrx200sw_write(tbl->val[1], XRX200_PCE_TBL_VAL_1);
+	xrx200sw_write(tbl->val[0], XRX200_PCE_TBL_VAL_0);
+
+	// read the mask
+	xrx200sw_write(tbl->mask, XRX200_PCE_TBL_MASK_0);
+	// read the type
+	xrx200sw_write(tbl->type, XRX200_PCE_TBL_CTRL_TYPE);
+	// read the valid flag
+	xrx200sw_write(tbl->valid, XRX200_PCE_TBL_CTRL_VLD);
+	// read the group map
+	xrx200sw_write(tbl->gmap, XRX200_PCE_TBL_CTRL_GMAP);
+
+	xrx200sw_write(1, XRX200_PCE_TBL_CTRL_BAS); // start access
+
+	// wait until hardware is ready
+	while (xrx200sw_read(XRX200_PCE_TBL_CTRL_BAS)) {};
+
+	return 0;
+}
+
+static void xrx200sw_fixup_pvids(void)
+{
+	int index, p, portmap, untagged;
+	struct xrx200_pce_table_entry tem;
+	struct xrx200_pce_table_entry tev;
+
+	portmap = 0;
+	for (p = 0; p < XRX200_MAX_PORT; p++)
+		portmap |= BIT(p);
+
+	tem.table = XRX200_PCE_VLANMAP_IDX;
+	tev.table = XRX200_PCE_ACTVLAN_IDX;
+
+	for (index = XRX200_MAX_VLAN; index-- > 0;)
+	{
+		tev.index = index;
+		xrx200_pce_table_entry_read(&tev);
+
+		if (tev.valid == 0)
+			continue;
+
+		tem.index = index;
+		xrx200_pce_table_entry_read(&tem);
+
+		if (tem.val[0] == 0)
+			continue;
+
+		untagged = portmap & (tem.val[1] ^ tem.val[2]);
+
+		for (p = 0; p < XRX200_MAX_PORT; p++)
+			if (untagged & BIT(p))
+			{
+				portmap &= ~BIT(p);
+				xrx200sw_write_x(index, XRX200_PCE_DEFPVID_PVID, p);
+			}
+
+		for (p = 0; p < XRX200_MAX_PORT; p++)
+			if (portmap & BIT(p))
+				xrx200sw_write_x(index, XRX200_PCE_DEFPVID_PVID, p);
+	}
+}
+
+// swconfig interface
+static void xrx200_hw_init(struct xrx200_hw *hw);
+
+// global
+static int xrx200sw_reset_switch(struct switch_dev *dev)
+{
+	struct xrx200_hw *hw = container_of(dev, struct xrx200_hw, swdev);
+
+	xrx200_hw_init(hw);
+
+	return 0;
+}
+
+static int xrx200_set_vlan_mode_enable(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	int p;
+
+	if ((attr->max > 0) && (val->value.i > attr->max))
+		return -EINVAL;
+
+	for (p = 0; p < XRX200_MAX_PORT; p++) {
+		xrx200sw_write_x(val->value.i, XRX200_PCE_VCTRL_VEMR, p);
+		xrx200sw_write_x(val->value.i, XRX200_PCE_VCTRL_VIMR, p);
+	}
+
+	xrx200sw_write(val->value.i, XRX200_PCE_GCTRL_0_VLAN);
+	return 0;
+}
+
+static int xrx200_get_vlan_mode_enable(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	val->value.i = xrx200sw_read(attr->id);
+	return 0;
+}
+
+static int xrx200_set_global_attr(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	if ((attr->max > 0) && (val->value.i > attr->max))
+		return -EINVAL;
+
+	xrx200sw_write(val->value.i, attr->id);
+	return 0;
+}
+
+static int xrx200_get_global_attr(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	val->value.i = xrx200sw_read(attr->id);
+	return 0;
+}
+
+// vlan
+static int xrx200sw_set_vlan_vid(struct switch_dev *dev, const struct switch_attr *attr,
+				 struct switch_val *val)
+{
+	int i;
+	struct xrx200_pce_table_entry tev;
+	struct xrx200_pce_table_entry tem;
+
+	tev.table = XRX200_PCE_ACTVLAN_IDX;
+
+	for (i = 0; i < XRX200_MAX_VLAN; i++)
+	{
+		tev.index = i;
+		xrx200_pce_table_entry_read(&tev);
+		if (tev.key[0] == val->value.i && i != val->port_vlan)
+			return -EINVAL;
+	}
+
+	tev.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tev);
+	tev.key[0] = val->value.i;
+	tev.valid = val->value.i > 0;
+	xrx200_pce_table_entry_write(&tev);
+
+	tem.table = XRX200_PCE_VLANMAP_IDX;
+	tem.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tem);
+	tem.val[0] = val->value.i;
+	xrx200_pce_table_entry_write(&tem);
+
+	xrx200sw_fixup_pvids();
+	return 0;
+}
+
+static int xrx200sw_get_vlan_vid(struct switch_dev *dev, const struct switch_attr *attr,
+				 struct switch_val *val)
+{
+	struct xrx200_pce_table_entry te;
+
+	te.table = XRX200_PCE_ACTVLAN_IDX;
+	te.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&te);
+	val->value.i = te.key[0];
+
+	return 0;
+}
+
+static int xrx200sw_set_vlan_ports(struct switch_dev *dev, struct switch_val *val)
+{
+	int i, portmap, tagmap, untagged;
+	struct xrx200_pce_table_entry tem;
+
+	portmap = 0;
+	tagmap = 0;
+	for (i = 0; i < val->len; i++)
+	{
+		struct switch_port *p = &val->value.ports[i];
+
+		portmap |= (1 << p->id);
+		if (p->flags & (1 << SWITCH_PORT_FLAG_TAGGED))
+			tagmap |= (1 << p->id);
+	}
+
+	tem.table = XRX200_PCE_VLANMAP_IDX;
+
+	untagged = portmap ^ tagmap;
+	for (i = 0; i < XRX200_MAX_VLAN; i++)
+	{
+		tem.index = i;
+		xrx200_pce_table_entry_read(&tem);
+
+		if (tem.val[0] == 0)
+			continue;
+
+		if ((untagged & (tem.val[1] ^ tem.val[2])) && (val->port_vlan != i))
+			return -EINVAL;
+	}
+
+	tem.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tem);
+
+	// auto-enable this vlan if not enabled already
+	if (tem.val[0] == 0)
+	{
+		struct switch_val v;
+		v.port_vlan = val->port_vlan;
+		v.value.i = val->port_vlan;
+		if(xrx200sw_set_vlan_vid(dev, NULL, &v))
+			return -EINVAL;
+
+		//read updated tem
+		tem.index = val->port_vlan;
+		xrx200_pce_table_entry_read(&tem);
+	}
+
+	tem.val[1] = portmap;
+	tem.val[2] = tagmap;
+	xrx200_pce_table_entry_write(&tem);
+
+	xrx200sw_fixup_pvids();
+
+	return 0;
+}
+
+static int xrx200sw_get_vlan_ports(struct switch_dev *dev, struct switch_val *val)
+{
+	int i;
+	unsigned short ports, tags;
+	struct xrx200_pce_table_entry tem;
+
+	tem.table = XRX200_PCE_VLANMAP_IDX;
+	tem.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tem);
+
+	ports = tem.val[1];
+	tags = tem.val[2];
+
+	for (i = 0; i < XRX200_MAX_PORT; i++) {
+		struct switch_port *p;
+
+		if (!(ports & (1 << i)))
+			continue;
+
+		p = &val->value.ports[val->len++];
+		p->id = i;
+		if (tags & (1 << i))
+			p->flags = (1 << SWITCH_PORT_FLAG_TAGGED);
+		else
+			p->flags = 0;
+	}
+
+	return 0;
+}
+
+static int xrx200sw_set_vlan_enable(struct switch_dev *dev, const struct switch_attr *attr,
+				 struct switch_val *val)
+{
+	struct xrx200_pce_table_entry tev;
+
+	tev.table = XRX200_PCE_ACTVLAN_IDX;
+	tev.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tev);
+
+	if (tev.key[0] == 0)
+		return -EINVAL;
+
+	tev.valid = val->value.i;
+	xrx200_pce_table_entry_write(&tev);
+
+	xrx200sw_fixup_pvids();
+	return 0;
+}
+
+static int xrx200sw_get_vlan_enable(struct switch_dev *dev, const struct switch_attr *attr,
+				 struct switch_val *val)
+{
+	struct xrx200_pce_table_entry tev;
+
+	tev.table = XRX200_PCE_ACTVLAN_IDX;
+	tev.index = val->port_vlan;
+	xrx200_pce_table_entry_read(&tev);
+	val->value.i = tev.valid;
+
+	return 0;
+}
+
+// port
+static int xrx200sw_get_port_pvid(struct switch_dev *dev, int port, int *val)
+{
+	struct xrx200_pce_table_entry tev;
+
+	if (port >= XRX200_MAX_PORT)
+		return -EINVAL;
+
+	tev.table = XRX200_PCE_ACTVLAN_IDX;
+	tev.index = xrx200sw_read_x(XRX200_PCE_DEFPVID_PVID, port);
+	xrx200_pce_table_entry_read(&tev);
+
+	*val = tev.key[0];
+	return 0;
+}
+
+static int xrx200sw_get_port_link(struct switch_dev *dev,
+				  int port,
+				  struct switch_port_link *link)
+{
+	if (port >= XRX200_MAX_PORT)
+		return -EINVAL;
+
+	link->link = xrx200sw_read_x(XRX200_MAC_PSTAT_LSTAT, port);
+	if (!link->link)
+		return 0;
+
+	link->duplex = xrx200sw_read_x(XRX200_MAC_PSTAT_FDUP, port);
+
+	link->rx_flow = !!(xrx200sw_read_x(XRX200_MAC_CTRL_0_FCON, port) && 0x0010);
+	link->tx_flow = !!(xrx200sw_read_x(XRX200_MAC_CTRL_0_FCON, port) && 0x0020);
+	link->aneg = !(xrx200sw_read_x(XRX200_MAC_CTRL_0_FCON, port));
+
+	link->speed = SWITCH_PORT_SPEED_10;
+	if (xrx200sw_read_x(XRX200_MAC_PSTAT_MBIT, port))
+		link->speed = SWITCH_PORT_SPEED_100;
+	if (xrx200sw_read_x(XRX200_MAC_PSTAT_GBIT, port))
+		link->speed = SWITCH_PORT_SPEED_1000;
+
+	return 0;
+}
+
+static int xrx200_set_port_attr(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	printk("%s %s(%d)\n", __FILE__, __func__, __LINE__);
+	if (val->port_vlan >= XRX200_MAX_PORT)
+		return -EINVAL;
+
+	if ((attr->max > 0) && (val->value.i > attr->max))
+		return -EINVAL;
+
+	xrx200sw_write_x(val->value.i, attr->id, val->port_vlan);
+	return 0;
+}
+
+static int xrx200_get_port_attr(struct switch_dev *dev, const struct switch_attr *attr, struct switch_val *val)
+{
+	if (val->port_vlan >= XRX200_MAX_PORT)
+		return -EINVAL;
+
+	val->value.i = xrx200sw_read_x(attr->id, val->port_vlan);
+	return 0;
+}
+
+// attributes
+static struct switch_attr xrx200sw_globals[] = {
+	{
+		.type = SWITCH_TYPE_INT,
+		.set = xrx200_set_vlan_mode_enable,
+		.get = xrx200_get_vlan_mode_enable,
+		.name = "enable_vlan",
+		.description = "Enable VLAN mode",
+		.max = 1},
+};
+
+static struct switch_attr xrx200sw_port[] = {
+	{
+	XRX200_PORT_REGATTR(XRX200_PCE_VCTRL_UVR),
+	.name = "uvr",
+	.description = "Unknown VLAN Rule",
+	.max = 1,
+	},
+	{
+	XRX200_PORT_REGATTR(XRX200_PCE_VCTRL_VSR),
+	.name = "vsr",
+	.description = "VLAN Security Rule",
+	.max = 1,
+	},
+	{
+	XRX200_PORT_REGATTR(XRX200_PCE_VCTRL_VINR),
+	.name = "vinr",
+	.description = "VLAN Ingress Tag Rule",
+	.max = 2,
+	},
+	{
+	XRX200_PORT_REGATTR(XRX200_PCE_PCTRL_0_TVM),
+	.name = "tvm",
+	.description = "Transparent VLAN Mode",
+	.max = 1,
+	},
+};
+
+static struct switch_attr xrx200sw_vlan[] = {
+	{
+		.type = SWITCH_TYPE_INT,
+		.name = "vid",
+		.description = "VLAN ID (0-4094)",
+		.set = xrx200sw_set_vlan_vid,
+		.get = xrx200sw_get_vlan_vid,
+		.max = 4094,
+	},
+	{
+		.type = SWITCH_TYPE_INT,
+		.name = "enable",
+		.description = "Enable VLAN",
+		.set = xrx200sw_set_vlan_enable,
+		.get = xrx200sw_get_vlan_enable,
+		.max = 1,
+	},
+};
+
+static const struct switch_dev_ops xrx200sw_ops = {
+	.attr_global = {
+		.attr = xrx200sw_globals,
+		.n_attr = ARRAY_SIZE(xrx200sw_globals),
+	},
+	.attr_port = {
+		.attr = xrx200sw_port,
+		.n_attr = ARRAY_SIZE(xrx200sw_port),
+	},
+	.attr_vlan = {
+		.attr = xrx200sw_vlan,
+		.n_attr = ARRAY_SIZE(xrx200sw_vlan),
+	},
+	.get_vlan_ports = xrx200sw_get_vlan_ports,
+	.set_vlan_ports = xrx200sw_set_vlan_ports,
+	.get_port_pvid = xrx200sw_get_port_pvid,
+	.reset_switch = xrx200sw_reset_switch,
+	.get_port_link = xrx200sw_get_port_link,
+//	.get_port_stats = xrx200sw_get_port_stats, //TODO
+};
+
+static int xrx200sw_init(struct xrx200_hw *hw)
+{
+	int netdev_num;
+
+	for (netdev_num = 0; netdev_num < hw->num_devs; netdev_num++)
+	{
+		struct switch_dev *swdev;
+		struct net_device *dev = hw->devs[netdev_num];
+		struct xrx200_priv *priv = netdev_priv(dev);
+		if (!priv->sw)
+			continue;
+
+		swdev = &hw->swdev;
+
+		swdev->name = "Lantiq XRX200 Switch";
+		swdev->vlans = XRX200_MAX_VLAN;
+		swdev->ports = XRX200_MAX_PORT;
+		swdev->cpu_port = 6;
+		swdev->ops = &xrx200sw_ops;
+
+		register_switch(swdev, dev);
+		return 0; // enough switches
+	}
+	return 0;
+}
 
 static int xrx200_open(struct net_device *dev)
 {
@@ -346,7 +933,7 @@ static void xrx200_hw_receive(struct xrx200_chan *ch, int id)
 	struct xrx200_priv *priv = netdev_priv(dev);
 	struct ltq_dma_desc *desc = &ch->dma.desc_base[ch->dma.desc];
 	struct sk_buff *skb = ch->skb[ch->dma.desc];
-	int len = (desc->ctl & LTQ_DMA_SIZE_MASK) - XRX200_DMA_CRC_LEN;
+	int len = (desc->ctl & LTQ_DMA_SIZE_MASK);
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->hw->lock, flags);
@@ -924,9 +1511,9 @@ static void xrx200_hw_init(struct xrx200_hw *hw)
 		PMAC_HD_CTL);
 #endif
 
-	/* enable port fetch/store dma */
+	/* enable port fetch/store dma & VLAN Modification */
 	for (i = 0; i < 7; i++ ) {
-		ltq_switch_w32_mask(0, 0x01, FDMA_PCTRLx(i));
+		ltq_switch_w32_mask(0, 0x19, FDMA_PCTRLx(i));
 		ltq_switch_w32_mask(0, 0x01, SDMA_PCTRLx(i));
 		ltq_switch_w32_mask(0, PCE_INGRESS, PCE_PCTRL_REG(i, 0));
 	}
@@ -1065,6 +1652,10 @@ static void xrx200_of_iface(struct xrx200_hw *hw, struct device_node *iface)
 	if (wan && (*wan == 1))
 		priv->wan = 1;
 
+	/* should the switch be enabled on this interface ? */
+	if (of_find_property(iface, "lantiq,switch", NULL))
+		priv->sw = 1;
+
 	/* load the ports that are part of the interface */
 	for_each_child_of_node(iface, port)
 		if (of_device_is_compatible(port, "lantiq,xrx200-pdi-port"))
@@ -1137,6 +1728,8 @@ static int xrx200_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to load interfaces\n");
 		return -ENOENT;
 	}
+
+	xrx200sw_init(&xrx200_hw);
 
 	/* set wan port mask */
 	ltq_pmac_w32(xrx200_hw.wan_map, PMAC_EWAN);
