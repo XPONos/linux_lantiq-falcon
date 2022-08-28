@@ -82,6 +82,9 @@ ip_packet_match(const struct iphdr *ip,
 
 #define FWINV(bool, invflg) ((bool) ^ !!(ipinfo->invflags & (invflg)))
 
+	if (ipinfo->flags & IPT_F_NO_DEF_MATCH)
+		return true;
+
 	if (FWINV((ip->saddr&ipinfo->smsk.s_addr) != ipinfo->src.s_addr,
 		  IPT_INV_SRCIP) ||
 	    FWINV((ip->daddr&ipinfo->dmsk.s_addr) != ipinfo->dst.s_addr,
@@ -133,6 +136,29 @@ ip_packet_match(const struct iphdr *ip,
 	}
 
 	return true;
+}
+
+static void
+ip_checkdefault(struct ipt_ip *ip)
+{
+	static const char iface_mask[IFNAMSIZ] = {};
+
+	if (ip->invflags || ip->flags & IPT_F_FRAG)
+		return;
+
+	if (memcmp(ip->iniface_mask, iface_mask, IFNAMSIZ) != 0)
+		return;
+
+	if (memcmp(ip->outiface_mask, iface_mask, IFNAMSIZ) != 0)
+		return;
+
+	if (ip->smsk.s_addr || ip->dmsk.s_addr)
+		return;
+
+	if (ip->proto)
+		return;
+
+	ip->flags |= IPT_F_NO_DEF_MATCH;
 }
 
 static bool
@@ -560,7 +586,7 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
 }
 
 static int
-check_entry(const struct ipt_entry *e, const char *name)
+check_entry(struct ipt_entry *e, const char *name)
 {
 	const struct xt_entry_target *t;
 
@@ -568,6 +594,8 @@ check_entry(const struct ipt_entry *e, const char *name)
 		duprintf("ip check failed %p %s.\n", e, name);
 		return -EINVAL;
 	}
+
+	ip_checkdefault(&e->ip);
 
 	if (e->target_offset + sizeof(struct xt_entry_target) >
 	    e->next_offset)
@@ -930,6 +958,7 @@ copy_entries_to_user(unsigned int total_size,
 	const struct xt_table_info *private = table->private;
 	int ret = 0;
 	const void *loc_cpu_entry;
+	u8 flags;
 
 	counters = alloc_counters(table);
 	if (IS_ERR(counters))
@@ -957,6 +986,14 @@ copy_entries_to_user(unsigned int total_size,
 				 + offsetof(struct ipt_entry, counters),
 				 &counters[num],
 				 sizeof(counters[num])) != 0) {
+			ret = -EFAULT;
+			goto free_counters;
+		}
+
+		flags = e->ip.flags & IPT_F_MASK;
+		if (copy_to_user(userptr + off
+				 + offsetof(struct ipt_entry, ip.flags),
+				 &flags, sizeof(flags)) != 0) {
 			ret = -EFAULT;
 			goto free_counters;
 		}
