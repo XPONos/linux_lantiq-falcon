@@ -457,6 +457,9 @@ struct bgmac {
 	bool has_robosw;
 
 	bool loopback;
+
+	/* platform device for associated switch */
+	struct platform_device *b53_device;
 };
 
 static inline u32 bgmac_read(struct bgmac *bgmac, u16 offset)
