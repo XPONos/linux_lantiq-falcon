@@ -10,6 +10,7 @@
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/export.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -360,6 +361,13 @@ int __init twd_local_timer_register(struct twd_local_timer *tlt)
 
 	return twd_local_timer_common_register(NULL);
 }
+
+/* Needed by mpcore_wdt */
+unsigned long twd_timer_get_rate(void)
+{
+	return twd_timer_rate;
+}
+EXPORT_SYMBOL_GPL(twd_timer_get_rate);
 
 #ifdef CONFIG_OF
 static void __init twd_local_timer_of_register(struct device_node *np)
