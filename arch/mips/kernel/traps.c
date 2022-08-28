@@ -684,6 +684,7 @@ asmlinkage void do_ov(struct pt_regs *regs)
 	force_sig_info(SIGFPE, &info, current);
 }
 
+#ifdef CONFIG_MIPS_FPU_EMU
 int process_fpemu_return(int sig, void __user *fault_addr)
 {
 	if (sig == SIGSEGV || sig == SIGBUS) {
@@ -707,6 +708,7 @@ int process_fpemu_return(int sig, void __user *fault_addr)
 		return 0;
 	}
 }
+#endif /* CONFIG_MIPS_FPU_EMU */
 
 /*
  * XXX Delayed fp exceptions when doing a lazy ctx switch XXX
