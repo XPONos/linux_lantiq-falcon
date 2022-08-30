@@ -33,6 +33,21 @@ config DT_EASY50712
 	bool "Easy50712"
 	depends on SOC_XWAY
 	select BUILTIN_DTB
+	
+config DT_EASY98000NOR
+	bool "EASY98000 - Lantiq Falcon (NOR)"
+	depends on SOC_FALCON
+	select BUILTIN_DTB
+	
+config DT_EASY98000SFLASH
+	bool "EASY98000 - Lantiq Falcon (SFLASH)"
+	depends on SOC_FALCON
+	select BUILTIN_DTB
+	
+config DT_FALCONSFP
+	bool "SFP - Lantiq Falcon SFP Stick"
+	depends on SOC_FALCON
+	select BUILTIN_DTB
 endchoice
 
 config PCI_LANTIQ
