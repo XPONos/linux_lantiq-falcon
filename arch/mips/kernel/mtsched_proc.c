@@ -21,11 +21,11 @@
 
 #include <asm/cpu.h>
 #include <asm/processor.h>
-#include <asm/system.h>
 #include <asm/mipsregs.h>
 #include <asm/mipsmtregs.h>
 #include <asm/uaccess.h>
 #include <linux/proc_fs.h>
+#include <linux/gfp.h>
 
 static struct proc_dir_entry *mtsched_proc;
 
@@ -39,10 +39,10 @@ static struct proc_dir_entry *mtsched_proc;
 int lastvpe = 1;
 int lasttc = 8;
 
-static int proc_read_mtsched(char *page, char **start, off_t off,
-			int count, int *eof, void *data)
+static ssize_t proc_read_mtsched(struct file *filp, char __user *buff, 
+            size_t count, loff_t *off)
 {
-	int totalen = 0;
+	ssize_t ret;
 	int len;
 
 	int i;
@@ -56,6 +56,8 @@ static int proc_read_mtsched(char *page, char **start, off_t off,
 	unsigned int vpeschefback[NVPES];
 	unsigned int tcschedule[NTCS];
 	unsigned int tcschefback[NTCS];
+	unsigned long page = get_zeroed_page(GFP_KERNEL);
+	char *p = (char *) page;
 
 	/* Dump the state of the MIPS MT scheduling policy manager */
 	/* Inititalize control state */
@@ -109,26 +111,26 @@ static int proc_read_mtsched(char *page, char **start, off_t off,
 	local_irq_restore(flags);
 
 	for(vpe=0; vpe < NVPES; vpe++) {
-		len = sprintf(page, "VPE[%d].VPEschedule  = 0x%08x\n",
+		len = sprintf(p, "VPE[%d].VPEschedule  = 0x%08x\n",
 			vpe, vpeschedule[vpe]);
-		totalen += len;
-		page += len;
-		len = sprintf(page, "VPE[%d].VPEschefback = 0x%08x\n",
+		p += len;
+		len = sprintf(p, "VPE[%d].VPEschefback = 0x%08x\n",
 			vpe, vpeschefback[vpe]);
-		totalen += len;
-		page += len;
+		p += len;
 	}
 	for(i=0; i < NTCS; i++) {
-		len = sprintf(page, "TC[%d].TCschedule    = 0x%08x\n",
+		len = sprintf(p, "TC[%d].TCschedule    = 0x%08x\n",
 			i, tcschedule[i]);
-		totalen += len;
-		page += len;
-		len = sprintf(page, "TC[%d].TCschefback   = 0x%08x\n",
+		p += len;
+		len = sprintf(p, "TC[%d].TCschefback   = 0x%08x\n",
 			i, tcschefback[i]);
-		totalen += len;
-		page += len;
+		p += len;
 	}
-	return totalen;
+	
+	ret = simple_read_from_buffer(buff, count, off, (char *) page, (unsigned long) p - page);
+	
+	free_page(page);
+	return ret;
 }
 
 /*
@@ -137,8 +139,8 @@ static int proc_read_mtsched(char *page, char **start, off_t off,
 
 #define TXTBUFSZ 100
 
-static int proc_write_mtsched(struct file *file, const char *buffer,
-				unsigned long count, void *data)
+static int proc_write_mtsched(struct file *filp, const char __user *buffer, 
+                size_t count, loff_t *data)
 {
 	int len = 0;
 	char mybuf[TXTBUFSZ];
@@ -256,6 +258,12 @@ skip:
 	return (len);
 }
 
+static struct file_operations proc_mtsched_operations = {
+        .owner    = THIS_MODULE,
+        .read     = proc_read_mtsched,
+        .write    = proc_write_mtsched,
+};
+
 static int __init init_mtsched_proc(void)
 {
 	extern struct proc_dir_entry *get_mips_proc_dir(void);
@@ -268,10 +276,13 @@ static int __init init_mtsched_proc(void)
 
 	mips_proc_dir = get_mips_proc_dir();
 
-	mtsched_proc = create_proc_entry("mtsched", 0644, mips_proc_dir);
-	mtsched_proc->read_proc = proc_read_mtsched;
-	mtsched_proc->write_proc = proc_write_mtsched;
-
+	mtsched_proc = proc_create("mtsched", 0644, mips_proc_dir, &proc_mtsched_operations);
+	
+	if (mtsched_proc == NULL) {
+		printk(KERN_ERR "mtsched_proc: Couldn't create proc entry\n");
+		return -ENOMEM;
+        }
+	
 	return 0;
 }
 
