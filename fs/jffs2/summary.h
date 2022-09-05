@@ -144,7 +144,7 @@ union jffs2_sum_mem
 	struct jffs2_sum_dirent_mem d;
 	struct jffs2_sum_xattr_mem x;
 	struct jffs2_sum_xref_mem r;
-};
+} __attribute__((packed));
 
 /* Summary related information stored in superblock */
 
