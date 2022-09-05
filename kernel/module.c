@@ -1134,6 +1134,7 @@ static struct module_attribute *modinfo_attrs[] = {
 	NULL,
 };
 
+#ifndef CONFIG_MODULE_STRIPPED
 static const char vermagic[] = VERMAGIC_STRING;
 
 static int try_to_force_load(struct module *mod, const char *reason)
@@ -1148,6 +1149,7 @@ static int try_to_force_load(struct module *mod, const char *reason)
 	return -ENOEXEC;
 #endif
 }
+#endif
 
 #ifdef CONFIG_MODVERSIONS
 /* If the arch applies (non-zero) relocations to kernel kcrctab, unapply it. */
