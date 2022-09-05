@@ -23,7 +23,7 @@
 #define MODCON_STSEDGE		0x0004
 #define LTQ_EBU_MODCON		0x000C
 
-static const char const *part_probes[] = { "cmdlinepart", "ofpart", NULL };
+static const char* part_probes[] = { "cmdlinepart", "ofpart", NULL };
 
 static int falcon_nand_ready(struct mtd_info *mtd)
 {
