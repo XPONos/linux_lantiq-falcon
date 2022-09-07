@@ -1,0 +1,39 @@
+/dts-v1/;
+
+/include/ "falcon.dtsi"
+
+/ {
+	model = "EASY98000 - Lantiq Falcon (NOR)";
+	compatible = "lantiq,easy98000-nor", "lantiq,easy98000", "lantiq,falcon";
+	
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x2000000>;
+	};
+};
+
+&ebu_cs0 {
+	flash@0 {
+		compatible = "lantiq,nor";
+		bank-width = <2>;
+		reg = <0x0 0x4000000>;
+
+		partition@0 {
+			label = "uboot";
+			#size-cells = <0>;
+			reg = <0x00000 0x40000>;
+		};
+
+		partition@10000 {
+			label = "uboot_env";
+			#size-cells = <0>;
+			reg = <0x40000 0x40000>;
+		};
+
+		partition@20000 {
+			label = "firmware";
+			#size-cells = <0>;
+			reg = <0x80000 0x3d0000>;
+		};
+	};
+};
