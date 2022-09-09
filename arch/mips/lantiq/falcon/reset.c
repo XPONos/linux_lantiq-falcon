@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Thomas Langer <thomas.langer@lantiq.com>
  * Copyright (C) 2012 John Crispin <blogic@openwrt.org>
+ * Copyright (C) 2022 Ernesto Castellotti <mail@ernestocastellotti.it>
  */
 
 #include <linux/init.h>
@@ -12,6 +13,7 @@
 #include <linux/pm.h>
 #include <asm/reboot.h>
 #include <linux/export.h>
+#include <linux/delay.h>
 
 #include <lantiq_soc.h>
 
@@ -49,13 +51,16 @@ EXPORT_SYMBOL_GPL(ltq_reset_cause);
 
 static void machine_restart(char *command)
 {
+        pr_info("falcon-reset: Local IRQ disabled\n");
 	local_irq_disable();
 
+        pr_info("falcon-reset: Set boot register to reboot\n");
 	/* reboot magic */
 	ltq_w32(BOOT_PW1, (void *)BOOT_PW1_REG); /* 'LTQ\0' */
 	ltq_w32(BOOT_PW2, (void *)BOOT_PW2_REG); /* '\0QTL' */
 	ltq_w32(0, (void *)BOOT_REG_BASE); /* reset Bootreg RVEC */
 
+        pr_emerg("falcon-reset: Set watchdog to reboot\n");
 	/* watchdog magic */
 	ltq_w32(WDT_PW1, (void *)WDT_REG_BASE);
 	ltq_w32(WDT_PW2 |
@@ -64,26 +69,42 @@ static void machine_restart(char *command)
 		(0x1 << 31) | /* enable */
 		(1), /* reload */
 		(void *)WDT_REG_BASE);
-	unreachable();
+
+	mdelay(1000);
+	pr_info("The machine did not restart properly! -- System halted\n");
+	_machine_halt();
 }
 
 static void machine_halt(void)
 {
+        pr_info("falcon-reset: Local IRQ disabled\n");
 	local_irq_disable();
-	unreachable();
-}
 
-static void machine_power_off(void)
-{
-	local_irq_disable();
-	unreachable();
+	pr_info("falcon-reset: Interrupts masked\n");
+	clear_c0_status(ST0_IM);
+	
+	pr_info("falcon-reset: Disable watchdog\n");
+	ltq_w32(WDT_PW1, (void *)WDT_REG_BASE);
+	ltq_w32(WDT_PW2, (void *)WDT_REG_BASE);
+
+	pr_info("falcon-reset: Execute wait instruction\n\n");
+	pr_alert("You can remove the power now.\n");
+	while (true) {
+	        asm volatile(
+			".set	push\n\t"
+			".set	mips32r2\n\t"
+			"wait\n\t"
+			".set	pop");
+				
+	        write_c0_compare(0);
+	}
 }
 
 static int __init mips_reboot_setup(void)
 {
 	_machine_restart = machine_restart;
 	_machine_halt = machine_halt;
-	pm_power_off = machine_power_off;
+	pm_power_off = machine_halt;
 	return 0;
 }
 
