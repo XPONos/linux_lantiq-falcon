@@ -307,6 +307,30 @@ config MTD_SWAP
           suitable for swapping.  The mapping of written blocks is not saved.
 	  The driver provides wear leveling by storing erase counter into the
 	  OOB.
+	  
+config MTD_ROOTFS_ROOT_DEV
+	bool "Automatically set rootfs partition to be root filesystem"
+	default n
+	
+config MTD_ROOTFS_PARTITION_NAME
+	string "RootFS partition name"
+	default "rootfs"
+
+config MTD_ROOTFS_SPLIT
+	bool "Automatically split rootfs partition for squashfs"
+	default n
+	
+config MTD_ROOTFS_DATA_PARTITION_NAME
+	string "RootFS data partition name"
+	default "rootfs_data"
+	
+config MTD_UIMAGE_SPLIT
+	bool "Enable split support for partitions containing a uImage"
+	default n
+
+config MTD_UIMAGE_SPLIT_PARTITION_NAME
+	string "uImage partition name"
+	default "firmware"
 
 source "drivers/mtd/chips/Kconfig"
 

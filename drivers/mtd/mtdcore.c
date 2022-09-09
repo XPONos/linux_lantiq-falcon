@@ -38,6 +38,10 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_MTD_ROOTFS_ROOT_DEV
+#include <linux/root_dev.h>
+#endif
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
@@ -408,6 +412,15 @@ int add_mtd_device(struct mtd_info *mtd)
 	   of this try_ nonsense, and no bitching about it
 	   either. :) */
 	__module_get(THIS_MODULE);
+
+#ifdef CONFIG_MTD_ROOTFS_ROOT_DEV
+	if (!strcmp(mtd->name, CONFIG_MTD_ROOTFS_PARTITION_NAME) && ROOT_DEV == 0) {
+		pr_notice("mtd: device %d (%s) set to be root filesystem\n",
+			  mtd->index, mtd->name);
+		ROOT_DEV = MKDEV(MTD_BLOCK_MAJOR, mtd->index);
+	}
+#endif
+
 	return 0;
 
 fail_added:

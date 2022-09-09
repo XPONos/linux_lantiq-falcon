@@ -51,6 +51,13 @@ struct mtd_part {
  */
 #define PART(x)  ((struct mtd_part *)(x))
 
+#ifdef CONFIG_MTD_ROOTFS_SPLIT
+#include <linux/magic.h>
+#include "../../fs/squashfs/squashfs_fs.h"
+#endif
+
+#define UBOOT_MAGIC	        0x27051956
+static inline void mtd_partition_split(struct mtd_info *master, struct mtd_part *part);
 
 /*
  * MTD methods which simply translate the effective address and pass through
@@ -533,8 +540,9 @@ out_register:
 	return slave;
 }
 
-int mtd_add_partition(struct mtd_info *master, char *name,
-		      long long offset, long long length)
+static int
+__mtd_add_partition(struct mtd_info *master, char *name,
+		    long long offset, long long length, bool dup_check)
 {
 	struct mtd_partition part;
 	struct mtd_part *p, *new;
@@ -566,27 +574,36 @@ int mtd_add_partition(struct mtd_info *master, char *name,
 	end = offset + length;
 
 	mutex_lock(&mtd_partitions_mutex);
-	list_for_each_entry(p, &mtd_partitions, list)
-		if (p->master == master) {
-			if ((start >= p->offset) &&
-			    (start < (p->offset + p->mtd.size)))
-				goto err_inv;
+	if (dup_check) {
+		list_for_each_entry(p, &mtd_partitions, list)
+			if (p->master == master) {
+				if ((start >= p->offset) &&
+				    (start < (p->offset + p->mtd.size)))
+					goto err_inv;
 
-			if ((end >= p->offset) &&
-			    (end < (p->offset + p->mtd.size)))
-				goto err_inv;
-		}
+				if ((end >= p->offset) &&
+				    (end < (p->offset + p->mtd.size)))
+					goto err_inv;
+			}
+	}
 
 	list_add(&new->list, &mtd_partitions);
 	mutex_unlock(&mtd_partitions_mutex);
 
 	add_mtd_device(&new->mtd);
+	mtd_partition_split(master, new);
 
 	return ret;
 err_inv:
 	mutex_unlock(&mtd_partitions_mutex);
 	free_partition(new);
 	return -EINVAL;
+}
+
+int mtd_add_partition(struct mtd_info *master, char *name,
+		      long long offset, long long length)
+{
+	return __mtd_add_partition(master, name, offset, length, true);
 }
 EXPORT_SYMBOL_GPL(mtd_add_partition);
 
@@ -644,7 +661,8 @@ int add_mtd_partitions(struct mtd_info *master,
 		mutex_unlock(&mtd_partitions_mutex);
 
 		add_mtd_device(&slave->mtd);
-
+		mtd_partition_split(master, slave);
+		
 		cur_offset = slave->offset + slave->mtd.size;
 	}
 
@@ -775,3 +793,117 @@ uint64_t mtd_get_device_size(const struct mtd_info *mtd)
 	return PART(mtd)->master->size;
 }
 EXPORT_SYMBOL_GPL(mtd_get_device_size);
+
+#ifdef CONFIG_MTD_ROOTFS_SPLIT
+int mtd_get_squashfs_len(struct mtd_info *master,
+			 size_t offset,
+			 size_t *squashfs_len)
+{
+	struct squashfs_super_block sb;
+	size_t retlen;
+	int err;
+
+	err = mtd_read(master, offset, sizeof(sb), &retlen, (void *)&sb);
+	if (err || (retlen != sizeof(sb))) {
+		pr_alert("error occured while reading from \"%s\"\n",
+			 master->name);
+		return -EIO;
+	}
+
+	if (le32_to_cpu(sb.s_magic) != SQUASHFS_MAGIC) {
+		pr_alert("no squashfs found in \"%s\"\n", master->name);
+		return -EINVAL;
+	}
+
+	retlen = le64_to_cpu(sb.bytes_used);
+	if (retlen <= 0) {
+		pr_alert("squashfs is empty in \"%s\"\n", master->name);
+		return -ENODEV;
+	}
+
+	if (offset + retlen > master->size) {
+		pr_alert("squashfs has invalid size in \"%s\"\n",
+			 master->name);
+		return -EINVAL;
+	}
+
+	*squashfs_len = retlen;
+	return 0;
+}
+
+static int split_squashfs(struct mtd_info *master, int offset, int *split_offset)
+{
+	size_t squashfs_len;
+	int ret;
+	unsigned long mask;
+
+	ret = mtd_get_squashfs_len(master, offset, &squashfs_len);
+	if (ret)
+		return ret;
+
+        mask = master->erasesize - 1;
+        squashfs_len += offset & mask;
+	squashfs_len = (squashfs_len + mask) & ~mask;
+	squashfs_len -= offset & mask;
+	*split_offset = offset + squashfs_len;
+
+	return 0;
+}
+
+static void split_rootfs_data(struct mtd_info *master, struct mtd_part *part)
+{
+	unsigned int split_offset = 0;
+	unsigned int split_size;
+
+	if (split_squashfs(master, part->offset, &split_offset))
+		return;
+
+	if (split_offset <= 0)
+		return;
+
+	split_size = part->mtd.size - (split_offset - part->offset);
+	printk(KERN_INFO "mtd: partition \"%s\" created automatically, ofs=0x%x, len=0x%x\n",
+		CONFIG_MTD_ROOTFS_DATA_PARTITION_NAME, split_offset, split_size);
+
+	__mtd_add_partition(master, CONFIG_MTD_ROOTFS_DATA_PARTITION_NAME, split_offset,
+			    split_size, false);
+}
+#endif /* CONFIG_MTD_ROOTFS_SPLIT */
+
+#ifdef CONFIG_MTD_UIMAGE_SPLIT
+static void split_uimage(struct mtd_info *master, struct mtd_part *part)
+{
+	struct {
+		__be32 magic;
+		__be32 pad[2];
+		__be32 size;
+	} hdr;
+	size_t len;
+
+	if (mtd_read(master, part->offset, sizeof(hdr), &len, (void *) &hdr))
+		return;
+
+	if (len != sizeof(hdr) || hdr.magic != cpu_to_be32(UBOOT_MAGIC))
+		return;
+
+	len = be32_to_cpu(hdr.size) + 0x40;
+	if (len + master->erasesize > part->mtd.size)
+		return;
+
+	__mtd_add_partition(master, CONFIG_MTD_ROOTFS_PARTITION_NAME, part->offset + len,
+			    part->mtd.size - len, false);
+}
+#endif /* CONFIG_UIMAGE_SPLIT */
+
+static inline void mtd_partition_split(struct mtd_info *master, struct mtd_part *part)
+{
+#ifdef CONFIG_MTD_ROOTFS_SPLIT
+	if (!strcmp(part->mtd.name, CONFIG_MTD_ROOTFS_PARTITION_NAME))
+	    split_rootfs_data(master, part);
+#endif
+
+#ifdef CONFIG_MTD_UIMAGE_SPLIT
+	if (!strcmp(part->mtd.name, CONFIG_MTD_UIMAGE_SPLIT_PARTITION_NAME))
+	    split_uimage(master, part);
+#endif
+}
