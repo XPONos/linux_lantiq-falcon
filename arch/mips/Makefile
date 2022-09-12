@@ -315,6 +315,26 @@ vmlinux.32: vmlinux
 vmlinux.64: vmlinux
 	$(OBJCOPY) -O $(64bit-bfd) $(OBJCOPYFLAGS) $< $@
 
+ifdef CONFIG_BUILD_MIPS_RAW_BIN_IMAGE
+all-y			+= vmlinux.bin
+endif
+
+ifdef CONFIG_BUILD_MIPS_UIMAGE_BZ2
+all-y			+= uImage.bz2
+endif
+
+ifdef CONFIG_BUILD_MIPS_UIMAGE_GZ
+all-y			+= uImage.gz
+endif
+
+ifdef CONFIG_BUILD_MIPS_UIMAGE_LZMA
+all-y			+= uImage.lzma
+endif
+
+ifdef CONFIG_BUILD_MIPS_UIMAGE_LZO
+all-y			+= uImage.lzo
+endif
+
 all:	$(all-y)
 
 # boot

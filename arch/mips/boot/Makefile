@@ -82,6 +82,10 @@ targets += uImage.gz
 targets += uImage.lzma
 targets += uImage.lzo
 
+ifdef CONFIG_BUILD_MIPS_UIMAGE_OVERRIDE_NAME
+UIMAGE_NAME = "$(CONFIG_BUILD_MIPS_UIMAGE_NAME)"
+endif
+
 $(obj)/uImage.bin: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,uimage,none)
 

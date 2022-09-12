@@ -2436,6 +2436,63 @@ config BUILTIN_DTB
 
 endmenu
 
+menu "Build image options"
+config BUILD_MIPS_RAW_BIN_IMAGE
+	bool "Build a vmlinux.bin by default"
+	default n
+	help
+	  Enabling this option will cause a vmlinux.bin to be built by default.
+	  The image will built in arch/mips/boot/vmlinux.bin
+	
+config BUILD_MIPS_UIMAGE_OVERRIDE_NAME
+	bool "Override the default uImage name"
+	default n
+	help
+	  It allows you to replace the image name with one of your
+	  choice. If unsure, say N. 
+	
+config BUILD_MIPS_UIMAGE_NAME
+	string "Override the default uImage name"
+	depends on BUILD_MIPS_UIMAGE_OVERRIDE_NAME
+	help
+	  Specify the name of your uImage.
+	  
+config BUILD_MIPS_UIMAGE_UNCOMPRESSED
+	bool "Build a uImage.bin by default"
+	default n
+	help
+	  Enabling this option will cause a uImage.bin to be built by default.
+	  The image will built in arch/mips/boot/uImage.bin  
+	  
+config BUILD_MIPS_UIMAGE_BZ2
+	bool "Build a uImage.bz2 by default"
+	default n
+	help
+	  Enabling this option will cause a uImage.bz2 to be built by default.
+	  The image will built in arch/mips/boot/uImage.bz2
+	  
+config BUILD_MIPS_UIMAGE_GZ
+	bool "Build a uImage.gz by default"
+	default n
+	help
+	  Enabling this option will cause a uImage.gz to be built by default.
+	  The image will built in arch/mips/boot/uImage.gz
+	  
+config BUILD_MIPS_UIMAGE_LZMA
+	bool "Build a uImage.lzma by default"
+	default n
+	help
+	  Enabling this option will cause a uImage.lzma to be built by default.
+	  The image will built in arch/mips/boot/uImage.lzma
+	  
+config BUILD_MIPS_UIMAGE_LZO
+	bool "Build a uImage.lzo by default"
+	default n
+	help
+	  Enabling this option will cause a uImage.lzo to be built by default.
+	  The image will built in arch/mips/boot/uImage.lzo	  
+endmenu
+
 config LOCKDEP_SUPPORT
 	bool
 	default y
