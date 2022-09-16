@@ -308,7 +308,11 @@ asmlinkage void do_softirq(void)
 /*
  * Enter an interrupt context.
  */
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+void __ltq_irq_cache irq_enter(void)
+#else
 void irq_enter(void)
+#endif
 {
 	int cpu = smp_processor_id();
 
@@ -359,7 +363,11 @@ static inline void tick_irq_exit(void)
 /*
  * Exit an interrupt context. Process softirqs if needed and possible:
  */
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+void __ltq_irq_cache irq_exit(void)
+#else
 void irq_exit(void)
+#endif
 {
 #ifndef __ARCH_IRQ_EXIT_IRQS_DISABLED
 	local_irq_disable();

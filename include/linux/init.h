@@ -46,6 +46,9 @@
 #define __initconst	__constsection(.init.rodata)
 #define __exitdata	__section(.exit.data)
 #define __exit_call	__used __section(.exitcall.exit)
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+#define __ltq_irq_cache __section(.ltq_irq_cache)
+#endif
 
 /*
  * Some architecture have tool chains which do not handle rodata attributes

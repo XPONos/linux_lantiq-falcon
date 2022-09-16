@@ -159,7 +159,11 @@ extern void rcu_nmi_exit(void);
 /*
  * Enter irq context (on NO_HZ, update jiffies):
  */
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+extern void __ltq_irq_cache irq_enter(void);
+#else
 extern void irq_enter(void);
+#endif
 
 /*
  * Exit irq context without processing softirqs:
@@ -174,7 +178,11 @@ extern void irq_enter(void);
 /*
  * Exit irq context and process softirqs if needed:
  */
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+extern void __ltq_irq_cache irq_exit(void);
+#else
 extern void irq_exit(void);
+#endif
 
 #define nmi_enter()						\
 	do {							\

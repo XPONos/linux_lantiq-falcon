@@ -113,7 +113,11 @@ static inline struct msi_desc *irq_desc_get_msi_desc(struct irq_desc *desc)
  * irqchip-style controller then we call the ->handle_irq() handler,
  * and it calls __do_IRQ() if it's attached to an irqtype-style controller.
  */
+#ifdef CONFIG_LANTIQ_IRQ_CACHE_OPTIMIZATION
+static inline void __ltq_irq_cache generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
+#else
 static inline void generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
+#endif
 {
 	desc->handle_irq(irq, desc);
 }

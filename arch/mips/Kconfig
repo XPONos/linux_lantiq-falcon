@@ -2433,6 +2433,13 @@ config USE_OF
 
 config BUILTIN_DTB
 	bool
+	
+config LANTIQ_IRQ_CACHE_OPTIMIZATION
+	bool "Optimize the cache for IRQ handling"
+	depends on LANTIQ
+	help
+	  Try to force interrupt handling functions to be grouped in 
+	  the same cacheline, this should improve network performance.
 
 endmenu
 
