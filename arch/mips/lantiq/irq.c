@@ -430,6 +430,11 @@ int __init icu_of_init(struct device_node *node, struct device_node *parent)
 	ltq_domain = irq_domain_add_linear(node,
 		(MAX_IM * INT_NUM_IM_OFFSET) + MIPS_CPU_IRQ_CASCADE,
 		&irq_domain_ops, 0);
+		
+	if(!ltq_domain)
+		panic("Failed to add Lantiq IRQ domain");
+		
+	irq_set_default_host(ltq_domain);
 
 #if defined(CONFIG_MIPS_MT_SMP)
 	if (cpu_has_vint) {
