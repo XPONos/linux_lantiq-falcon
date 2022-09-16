@@ -1772,6 +1772,16 @@ config MODULE_SIG_HASH
 	default "sha256" if MODULE_SIG_SHA256
 	default "sha384" if MODULE_SIG_SHA384
 	default "sha512" if MODULE_SIG_SHA512
+	
+config MODULE_FORCE_LOAD_STRIPPED
+	bool "Force stripped module loading"
+	depends on !MODULE_FORCE_LOAD
+	depends on !MODVERSIONS
+	default n
+	help
+	  Allow loading of stripped modules with almost no module information.
+	  This is a REALLY BAD IDEA, but if you have to load an out-of-tree 
+	  module sometimes you have no alternative.
 
 endif # MODULES
 
