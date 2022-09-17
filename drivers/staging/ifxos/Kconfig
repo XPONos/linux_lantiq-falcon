@@ -1,0 +1,101 @@
+menuconfig LANTIQ_IFXOS
+	tristate "Lantiq IFXOS"
+	depends on LANTIQ
+	default n
+	---help---
+	  The Lantiq IFXOS kernel module is required for 
+	  Lantiq DSL/ONU GPON drivers. If in doubt, say N here.
+	  
+if LANTIQ_IFXOS	
+	
+config LANTIQ_IFXOS_EVENT
+	bool "Enable IFXOS event support"
+	depends on LANTIQ_IFXOS
+	default y
+	
+config LANTIQ_IFXOS_LOCK
+	bool "Enable IFXOS lock support"
+	depends on LANTIQ_IFXOS_EVENT
+	default y
+	
+config LANTIQ_IFXOS_NAMED_LOCK
+	bool "Enable IFXOS named lock support"
+	depends on LANTIQ_IFXOS_LOCK
+	default y
+	
+config LANTIQ_IFXOS_LOCK_TIMEOUT
+	bool "Enable IFXOS lock timeout support"
+	depends on LANTIQ_IFXOS_LOCK
+	default y
+	
+config LANTIQ_IFXOS_BLOCK_ALLOC
+	bool "Enable IFXOS block alloc support"
+	depends on LANTIQ_IFXOS
+	select LANTIQ_IFXOS_MEMORY
+	default y
+	
+config LANTIQ_IFXOS_MEMORY_LOCAL_CHECK
+	bool "Enable IFXOS local check support"
+	depends on LANTIQ_IFXOS_BLOCK_ALLOC
+	default n
+	
+config LANTIQ_IFXOS_MEM_ALLOC
+	bool "Enable IFXOS mem alloc support"
+	depends on LANTIQ_IFXOS
+	select LANTIQ_IFXOS_MEMORY
+	default y
+	
+config LANTIQ_IFXOS_MEMORY
+	bool
+	default n
+	depends on LANTIQ_IFXOS
+	
+config LANTIQ_IFXOS_MUTEX
+	bool "Enable IFXOS mutex support"
+	depends on LANTIQ_IFXOS
+	default y
+	
+config LANTIQ_IFXOS_SELECT
+	bool "Enable IFXOS SELECT handling support"
+	depends on LANTIQ_IFXOS
+	default y
+	
+config LANTIQ_IFXOS_SOCKET
+	bool "Enable IFXOS socket support"
+	depends on LANTIQ_IFXOS
+	default y	
+	
+config LANTIQ_IFXOS_SOCKET_IPV6
+	bool "Enable IFXOS IPv6 socket support"
+	depends on LANTIQ_IFXOS_SOCKET
+	default n
+	
+config LANTIQ_IFXOS_TIME_SLEEP_US
+	bool "Enable IFXOS time sleep in us support"
+	depends on LANTIQ_IFXOS
+	select LANTIQ_IFXOS_TIME
+	default y
+	
+config LANTIQ_IFXOS_TIME_SLEEP_MS
+	bool "Enable IFXOS time sleep in ms support"
+	depends on LANTIQ_IFXOS
+	select LANTIQ_IFXOS_TIME
+	default y
+	
+config LANTIQ_IFXOS_TIME_ELAPSED_TIME_GET_MS
+	bool "Enable IFXOS get elapesed time in ms support"
+	depends on LANTIQ_IFXOS
+	select LANTIQ_IFXOS_TIME
+	default y
+	
+config LANTIQ_IFXOS_TIME
+	bool
+	default n
+	depends on LANTIQ_IFXOS
+	
+config LANTIQ_IFXOS_THREAD
+	bool "Enable IFXOS thread support"
+	depends on LANTIQ_IFXOS_TIME_SLEEP_MS
+	default y
+	
+endif # LANTIQ_IFXOS
