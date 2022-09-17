@@ -244,17 +244,28 @@ static int falcon_gpio_probe(struct platform_device *pdev)
 {
 	struct pinctrl_gpio_range *gpio_range;
 	struct device_node *node = pdev->dev.of_node;
-	const __be32 *bank = of_get_property(node, "lantiq,bank", NULL);
+	int bank = of_alias_get_id(node, "gpio");
 	struct falcon_gpio_port *gpio_port;
 	struct resource *gpiores, irqres;
 	int ret, size;
+	
+	if (bank < 0 || bank >= MAX_BANKS) { // Fallback to old "lantiq,bank" DTS support
+	        pr_info("falcon_gpio, Falling back to old lantiq,bank detection.");
+	
+		if (of_property_read_u32_array(node, "lantiq,bank", &bank, 1) != 0) {
+		        pr_err("falcon_gpio, Missing valid GPIO aliases or lantiq,bank in DTS!");
+	    		return -ENODEV;
+	        }  
+	}
 
-	if (!bank || *bank >= MAX_BANKS)
+	if (bank < 0 || bank >= MAX_BANKS) {
+	        pr_err("falcon gpio, GPIO bank %d is not valid!\n", bank);
 		return -ENODEV;
+	}
 
-	size = pinctrl_falcon_get_range_size(*bank);
+	size = pinctrl_falcon_get_range_size(bank);
 	if (size < 1) {
-		dev_err(&pdev->dev, "pad not loaded for bank %d\n", *bank);
+		dev_err(&pdev->dev, "pad not loaded for bank %d\n", bank);
 		return size;
 	}
 
@@ -268,7 +279,7 @@ static int falcon_gpio_probe(struct platform_device *pdev)
 	if (!gpio_port)
 		return -ENOMEM;
 
-	snprintf(gpio_port->name, 6, "gpio%d", *bank);
+	snprintf(gpio_port->name, 6, "gpio%d", bank);
 	gpio_port->gpio_chip.label = gpio_port->name;
 	gpio_port->gpio_chip.direction_input = falcon_gpio_direction_input;
 	gpio_port->gpio_chip.direction_output = falcon_gpio_direction_output;
@@ -276,7 +287,7 @@ static int falcon_gpio_probe(struct platform_device *pdev)
 	gpio_port->gpio_chip.set = falcon_gpio_set;
 	gpio_port->gpio_chip.request = falcon_gpio_request;
 	gpio_port->gpio_chip.free = falcon_gpio_free;
-	gpio_port->gpio_chip.base = *bank * PINS_PER_PORT;
+	gpio_port->gpio_chip.base = bank * PINS_PER_PORT;
 	gpio_port->gpio_chip.ngpio = size;
 	gpio_port->gpio_chip.dev = &pdev->dev;
 
@@ -291,7 +302,7 @@ static int falcon_gpio_probe(struct platform_device *pdev)
 	clk_activate(gpio_port->clk);
 
 	if (of_irq_to_resource_table(node, &irqres, 1) == 1) {
-		gpio_port->irq_base = INT_NUM_EXTRA_START + (32 * *bank);
+		gpio_port->irq_base = INT_NUM_EXTRA_START + (32 * bank);
 		gpio_port->gpio_chip.to_irq = falcon_gpio_to_irq;
 		gpio_port->chained_irq = irqres.start;
 		irq_domain_add_legacy(node, size, gpio_port->irq_base, 0,
@@ -308,7 +319,7 @@ static int falcon_gpio_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, gpio_port);
 
 	gpio_range->name = "FALCON GPIO";
-	gpio_range->id = *bank;
+	gpio_range->id = bank;
 	gpio_range->base = gpio_port->gpio_chip.base;
 	gpio_range->pin_base = gpio_port->gpio_chip.base;
 	gpio_range->npins = gpio_port->gpio_chip.ngpio;
