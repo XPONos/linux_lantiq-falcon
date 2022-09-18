@@ -81,6 +81,8 @@
 static void __iomem *sysctl_membase[3], *status_membase;
 void __iomem *ltq_sys1_membase, *ltq_ebu_membase;
 
+static DEFINE_SPINLOCK(sysctrl_lock);
+
 void falcon_trigger_hrst(int level)
 {
 	sysctl_w32(SYSCTL_SYS1, level & 1, SYS1_HRSTOUTC);
@@ -149,6 +151,7 @@ static void falcon_gpe_enable(void)
 {
 	unsigned int freq;
 	unsigned int status;
+	unsigned long flags;
 
 	/* if if the clock is already enabled */
 	status = sysctl_r32(SYSCTL_SYS1, SYS1_INFRAC);
@@ -161,6 +164,8 @@ static void falcon_gpe_enable(void)
 		freq = (status_r32(STATUS_CONFIG) &
 			GPEFREQ_MASK) >>
 			GPEFREQ_OFFSET;
+			
+	spin_lock_irqsave(&sysctrl_lock, flags);
 
 	/* apply new frequency */
 	sysctl_w32_mask(SYSCTL_SYS1, 7 << (GPPC_OFFSET + 1),
@@ -170,6 +175,8 @@ static void falcon_gpe_enable(void)
 	/* enable new frequency */
 	sysctl_w32_mask(SYSCTL_SYS1, 0, 1 << (GPPC_OFFSET + 1), SYS1_INFRAC);
 	udelay(1);
+	
+	spin_unlock_irqrestore(&sysctrl_lock, flags);
 }
 
 static inline void clkdev_add_sys(const char *dev, unsigned int module,
