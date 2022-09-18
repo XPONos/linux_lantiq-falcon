@@ -42,6 +42,14 @@
 #define SYSCTL_SYSETH		1
 #define SYSCTL_SYSGPE		2
 
+#ifdef CONFIG_FALCON_COMPAT_SYSCTRL
+extern void ltq_sysctl_activate(int module, unsigned int mask);
+extern void ltq_sysctl_deactivate(int module, unsigned int mask);
+extern void ltq_sysctl_clken(int module, unsigned int mask);
+extern void ltq_sysctl_clkdis(int module, unsigned int mask);
+extern void ltq_sysctl_reboot(int module, unsigned int mask);
+#endif
+
 /* BOOT_SEL - find what boot media we have */
 #define BS_FLASH		0x1
 #define BS_SPI			0x4

@@ -57,3 +57,8 @@ config XRX200_PHY_FW
 	depends on SOC_XWAY
 
 endif
+
+config FALCON_COMPAT_SYSCTRL
+	bool "Enable Falcon compat sysctrl"
+	depends on SOC_FALCON
+	default n	  

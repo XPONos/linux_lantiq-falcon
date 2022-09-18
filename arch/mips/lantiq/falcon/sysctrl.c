@@ -262,3 +262,40 @@ void __init ltq_soc_init(void)
 	clkdev_add_sys("1e100c00.serial", SYSCTL_SYS1, ACTS_ASC0_ACT);
 	clkdev_add_sys("1e200000.i2c", SYSCTL_SYS1, ACTS_I2C_ACT);
 }
+
+#ifdef CONFIG_FALCON_COMPAT_SYSCTRL
+void ltq_sysctl_activate(int module, unsigned int mask)
+{
+	struct clk clk = { .module = module, .bits = mask };
+	sysctl_activate(&clk);
+}
+EXPORT_SYMBOL(ltq_sysctl_activate);
+
+void ltq_sysctl_deactivate(int module, unsigned int mask)
+{
+	struct clk clk = { .module = module, .bits = mask };
+	sysctl_deactivate(&clk);
+}
+EXPORT_SYMBOL(ltq_sysctl_deactivate);
+
+void ltq_sysctl_clken(int module, unsigned int mask)
+{
+	struct clk clk = { .module = module, .bits = mask };
+	sysctl_clken(&clk);
+}
+EXPORT_SYMBOL(ltq_sysctl_clken);
+
+void ltq_sysctl_clkdis(int module, unsigned int mask)
+{
+	struct clk clk = { .module = module, .bits = mask };
+	sysctl_clkdis(&clk);
+}
+EXPORT_SYMBOL(ltq_sysctl_clkdis);
+
+void ltq_sysctl_reboot(int module, unsigned int mask)
+{
+	struct clk clk = { .module = module, .bits = mask };
+	sysctl_reboot(&clk);
+}
+EXPORT_SYMBOL(ltq_sysctl_reboot);
+#endif
