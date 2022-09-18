@@ -59,4 +59,8 @@ static inline int sys_gpe_hw_is_activated(u32 mask)
 { return 1; }
 #endif
 
+#ifdef CONFIG_FALCON_TIMER
+void ltq_sysctl_sleep_enable(int cpu0, int xbar);
+#endif
+
 #endif /* __FALCON_SYSCTRL_H */

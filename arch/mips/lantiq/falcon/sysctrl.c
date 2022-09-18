@@ -17,6 +17,9 @@
 
 #include "../clk.h"
 
+
+/* Sleep Configuration Register */
+#define SYS1_SCFG		0x00b0
 /* infrastructure control register */
 #define SYS1_INFRAC		0x00bc
 /* Configuration fuses for drivers and pll */
@@ -46,6 +49,11 @@
 #define SYS1_HRSTOUTC		0x00c0
 /* clock divider bit */
 #define CPU0CC_CPUDIV		0x0001
+
+/* Enable XBAR Clockoff When All XBAR masters Clockoff */
+#define SCFG_XBAR	0x00010000
+/* CPU0 Clockoff On Sleep */
+#define SCFG_CPU0	0x00000001
 
 /* Activation Status Register */
 #define ACTS_ASC0_ACT	0x00001000
@@ -298,4 +306,23 @@ void ltq_sysctl_reboot(int module, unsigned int mask)
 	sysctl_reboot(&clk);
 }
 EXPORT_SYMBOL(ltq_sysctl_reboot);
+#endif
+
+#ifdef CONFIG_FALCON_TIMER
+void ltq_sysctl_sleep_enable(int cpu0, int xbar)
+{
+	u32 val = 0;
+
+	if (xbar)
+		val |= SCFG_XBAR | SCFG_CPU0;
+
+	if (cpu0)
+		val |= SCFG_CPU0;
+
+	sysctl_w32_mask(SYSCTL_SYS1,
+			SCFG_CPU0 | SCFG_XBAR,
+			val,
+			SYS1_SCFG);
+}
+EXPORT_SYMBOL(ltq_sysctl_sleep_enable);
 #endif

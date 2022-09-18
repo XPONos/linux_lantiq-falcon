@@ -61,4 +61,12 @@ endif
 config FALCON_COMPAT_SYSCTRL
 	bool "Enable Falcon compat sysctrl"
 	depends on SOC_FALCON
-	default n	  
+	default n
+	
+
+config FALCON_TIMER
+	bool "Enable Falcon timer clocksource"
+	depends on FALCON_COMPAT_SYSCTRL
+	default n
+	help 
+	  Enable the GPTC timer of SOC Falcon, it is more accurate than MIPS source.
