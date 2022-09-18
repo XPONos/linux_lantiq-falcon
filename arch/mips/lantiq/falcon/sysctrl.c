@@ -25,6 +25,37 @@
 /* Configuration fuses for drivers and pll */
 #define STATUS_CONFIG		0x0040
 
+/* CPU0 Clock Control Register */
+#define SYS1_CPU0CC		0x0040
+/* Sleep Configuration Register */
+#define SYS1_SCFG		0x00b0
+/* CLKO Pad Control Register */
+#define SYS1_CLKOC		0x00b8
+/* infrastructure control register */
+#define SYS1_INFRAC		0x00bc
+/* HRST_OUT_N Control Register */
+#define SYS1_HRSTOUTC		0x00c0
+
+/* Chip Identification Register */
+#define STATUS_CHIPID		0x000C
+/* SPARE fuse register 0 */
+#define STATUS_FUSE0		0x0038
+/* Fuses for Analog modules */
+#define STATUS_ANALOG		0x003C
+/* Configuration fuses for drivers and pll */
+#define STATUS_CONFIG		0x0040
+/* SPARE fuse register 1 */
+#define STATUS_FUSE1		0x0044
+
+/* External PHY Control Register */
+#define SYS_ETH_EXTPHYC		0x00B0
+/* Datarate Control Register */
+#define SYS_ETH_DRC		0x00B8
+/* GMAC Multiplexer Control Register */
+#define SYS_ETH_GMUXC		0x00BC
+/* Datarate Status Register */
+#define SYS_ETH_DRS		0x00C0
+
 /* GPE frequency selection */
 #define GPPC_OFFSET		24
 #define GPEFREQ_MASK		0x00000C0
@@ -55,6 +86,19 @@
 /* CPU0 Clockoff On Sleep */
 #define SCFG_CPU0	0x00000001
 
+/* CLKO Pad Control Register */
+#define CLKOC_OEN 		0x00000001
+
+/* Infrastructure Control Register */
+#define INFRAC_DGASPEN 		0x00000040
+#define INFRAC_DGASPHYS_MASK 	0x00000030
+#define INFRAC_DGASPHYS_OFFSET 	4
+#define INFRAC_LIN1V5C_MASK 	0x00000007
+#define INFRAC_LIN1V5EN 	0x00000008
+
+/* External PHY Control Register */
+#define EXTPHYC_CLKEN 		0x80000000
+
 /* Activation Status Register */
 #define ACTS_ASC0_ACT	0x00001000
 #define ACTS_ASC1_ACT	0x00000800
@@ -69,6 +113,50 @@
 #define ACTS_PADCTRL2	0x00200000
 #define ACTS_PADCTRL3	0x00200000
 #define ACTS_PADCTRL4	0x00400000
+
+/** FUSE0 Fuse Selector */
+#define SYSCTRL_FUSE_0				0
+/** FUSE1 Fuse Selector */
+#define SYSCTRL_FUSE_1				1
+/** ANALOG Fuse Selector */
+#define SYSCTRL_FUSE_ANALOG			2
+/** CONFIG Fuse Selector */
+#define SYSCTRL_FUSE_CONFIG			3
+
+/** Data Rate 10 MBit/s */
+#define SYSCTRL_DRC_10				0
+/** Data Rate 100 MBit/s */
+#define SYSCTRL_DRC_100				1
+/** Data Rate 200 MBit/s */
+#define SYSCTRL_DRC_200				5
+/** Data Rate 1000 MBit/s */
+#define SYSCTRL_DRC_1000			2
+/** Data Rate 2500 MBit/s */
+#define SYSCTRL_DRC_2500			4
+
+/** xMII0 Interface Selector */
+#define SYSCTRL_INTERFACE_XMII0			0
+/** xMII1 Interface Selector */
+#define SYSCTRL_INTERFACE_XMII1			1
+/** SGMII Interface Selector */
+#define SYSCTRL_INTERFACE_SGMII			2
+
+/* Data Rate Control Register */
+#define DRC_xMII0_MASK 	 	0x00700000
+#define DRC_xMII0_OFFSET 	20
+#define DRC_xMII1_MASK		0x07000000
+#define DRC_xMII1_OFFSET 	24
+#define DRC_SGMII_MASK 		0x00070000
+#define DRC_SGMII_OFFSET	16
+
+/* GMAC Multiplexer Control Register */
+#define GMUXC_GMAC0_MASK 	0x00000007
+
+/* GMAC Data Rate Status register */
+#define DRS_GMAC1_OFFSET 	4
+
+#define GMAC_MASK(mac)		(GMUXC_GMAC0_MASK << (4 * (mac)))
+#define GMAC_OFFSET(mac)	(DRS_GMAC1_OFFSET * (mac))
 
 #define sysctl_w32(m, x, y)	ltq_w32((x), sysctl_membase[m] + (y))
 #define sysctl_r32(m, x)	ltq_r32(sysctl_membase[m] + (x))
@@ -146,16 +234,24 @@ static void sysctl_reboot(struct clk *clk)
 	sysctl_wait(clk, clk->bits, SYSCTL_ACTS);
 }
 
-/* enable the ONU core */
-static void falcon_gpe_enable(void)
+static int gpe_clk_is_enabled(void)
 {
-	unsigned int freq;
 	unsigned int status;
-	unsigned long flags;
 
 	/* if if the clock is already enabled */
 	status = sysctl_r32(SYSCTL_SYS1, SYS1_INFRAC);
 	if (status & (1 << (GPPC_OFFSET + 1)))
+		return 1;
+	return 0;
+}
+
+/* enable the ONU core */
+static void falcon_gpe_enable(void)
+{
+	unsigned int freq;
+	unsigned long flags;
+
+	if (gpe_clk_is_enabled())
 		return;
 
 	if (status_r32(STATUS_CONFIG) == 0)
@@ -293,6 +389,42 @@ void ltq_sysctl_deactivate(int module, unsigned int mask)
 }
 EXPORT_SYMBOL(ltq_sysctl_deactivate);
 
+unsigned int ltq_sysctl_is_activated(const int module, const unsigned int mask)
+{
+	switch(module) {
+	case SYSCTL_SYS1:
+	case SYSCTL_SYSETH:
+	case SYSCTL_SYSGPE:
+		return (sysctl_r32(module, SYSCTL_ACTS) & mask) == mask ? 1 : 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_is_activated);
+
+unsigned int ltq_sysctl_is_clocked(const int module, const unsigned int mask)
+{
+	switch(module) {
+	case SYSCTL_SYS1:
+	case SYSCTL_SYSETH:
+	case SYSCTL_SYSGPE:
+		return (sysctl_r32(module, SYSCTL_CLKS) & mask) == mask ? 1 : 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_is_clocked);
+
+unsigned int ltq_sysctl_sys_gpe_hw_is_activated(unsigned int mask)
+{
+	if (!gpe_clk_is_enabled())
+		return 0;
+
+	if (!ltq_sysctl_is_clocked(SYSCTL_SYSGPE, mask))
+		return 0;
+
+	return ltq_sysctl_is_activated(SYSCTL_SYSGPE, mask);
+}
+EXPORT_SYMBOL(ltq_sysctl_sys_gpe_hw_is_activated);
+
 void ltq_sysctl_clken(int module, unsigned int mask)
 {
 	struct clk clk = { .module = module, .bits = mask };
@@ -313,6 +445,220 @@ void ltq_sysctl_reboot(int module, unsigned int mask)
 	sysctl_reboot(&clk);
 }
 EXPORT_SYMBOL(ltq_sysctl_reboot);
+
+void ltq_sysctl_dgasp_cfg_set(const unsigned int enable,
+			      const unsigned int hyst)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sysctrl_lock, flags);
+
+	if (enable)
+		sysctl_w32_mask(SYSCTL_SYS1,
+				INFRAC_DGASPEN | INFRAC_DGASPHYS_MASK,
+				INFRAC_DGASPEN |
+					((hyst << INFRAC_DGASPHYS_OFFSET) &
+							INFRAC_DGASPHYS_MASK),
+				SYS1_INFRAC);
+	else
+		sysctl_w32_mask(SYSCTL_SYS1, INFRAC_DGASPEN, 0, SYS1_INFRAC);
+
+	spin_unlock_irqrestore(&sysctrl_lock, flags);
+}
+EXPORT_SYMBOL(ltq_sysctl_dgasp_cfg_set);
+
+void ltq_sysctl_dgasp_cfg_get(unsigned int *enable, unsigned int *hyst)
+{
+	unsigned int infrac;
+
+	infrac = sysctl_r32(SYSCTL_SYS1, SYS1_INFRAC);
+
+	if (enable)
+		*enable = infrac & INFRAC_DGASPEN ? 1 : 0;
+
+	if (hyst)
+		*hyst   = (infrac & INFRAC_DGASPHYS_MASK) >>
+							INFRAC_DGASPHYS_OFFSET;
+}
+EXPORT_SYMBOL(ltq_sysctl_dgasp_cfg_get);
+
+void ltq_sysctl_clko_enable(const unsigned int enable)
+{
+	sysctl_w32_mask(SYSCTL_SYS1,
+			CLKOC_OEN,
+			enable ? CLKOC_OEN : 0,
+			SYS1_CLKOC);
+}
+EXPORT_SYMBOL(ltq_sysctl_clko_enable);
+
+void ltq_sysctl_ldo1v5_cfg_set(const unsigned int enable,
+			       const unsigned int control)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sysctrl_lock, flags);
+
+	if (enable)
+		sysctl_w32_mask(SYSCTL_SYS1,
+				INFRAC_LIN1V5C_MASK,
+				control & INFRAC_LIN1V5C_MASK,
+				SYS1_INFRAC);
+
+	sysctl_w32_mask(SYSCTL_SYS1,
+			INFRAC_LIN1V5EN,
+			enable ? INFRAC_LIN1V5EN : 0,
+			SYS1_INFRAC);
+
+	spin_unlock_irqrestore(&sysctrl_lock, flags);
+}
+EXPORT_SYMBOL(ltq_sysctl_ldo1v5_cfg_set);
+
+void ltq_sysctl_ldo1v5_cfg_get(unsigned int *enable,
+			       unsigned int *control)
+{
+	unsigned int infrac;
+
+	infrac = sysctl_r32(SYSCTL_SYS1, SYS1_INFRAC);
+
+	if (enable)
+		*enable  = infrac & INFRAC_LIN1V5EN ? 1 : 0;
+
+	if (control)
+		*control = infrac & INFRAC_LIN1V5C_MASK;
+}
+EXPORT_SYMBOL(ltq_sysctl_ldo1v5_cfg_get);
+
+int ltq_sysctl_fuse_get(const unsigned int fuse, unsigned int *val)
+{
+	switch (fuse) {
+	case SYSCTRL_FUSE_0:
+		*val = status_r32(STATUS_FUSE0);
+		break;
+	case SYSCTRL_FUSE_1:
+		*val = status_r32(STATUS_FUSE1);
+		break;
+	case SYSCTRL_FUSE_ANALOG:
+		*val = status_r32(STATUS_ANALOG);
+		break;
+	case SYSCTRL_FUSE_CONFIG:
+		*val = status_r32(STATUS_CONFIG);
+		break;
+	default:
+		return -1;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_fuse_get);
+
+void ltq_sysctl_chipid_get(unsigned int *chipid)
+{
+	if (chipid)
+		*chipid = status_r32(STATUS_CHIPID);
+}
+EXPORT_SYMBOL(ltq_sysctl_chipid_get);
+
+void ltq_sysctl_ephy_clko_set(const unsigned int enable, const unsigned int clk)
+{
+	unsigned int val = clk & 0x7;
+
+	if (enable)
+		val |= EXTPHYC_CLKEN;
+
+	sysctl_w32(SYSCTL_SYSETH, val, SYS_ETH_EXTPHYC);
+}
+EXPORT_SYMBOL(ltq_sysctl_ephy_clko_set);
+
+int ltq_sysctl_drc_set(const unsigned int interface, const unsigned int drc)
+{
+	unsigned int mask, reg;
+	unsigned long flags;
+
+	switch (drc) {
+	default:
+		return -1;
+	case SYSCTRL_DRC_2500:
+		if (interface != SYSCTRL_INTERFACE_SGMII)
+			return -1;
+		break;
+	case SYSCTRL_DRC_200:
+		if (interface == SYSCTRL_INTERFACE_SGMII)
+			return -1;
+		break;
+	case SYSCTRL_DRC_10:
+	case SYSCTRL_DRC_100:
+	case SYSCTRL_DRC_1000:
+		break;
+	}
+
+	switch (interface) {
+	case SYSCTRL_INTERFACE_XMII0:
+		mask = DRC_xMII0_MASK;
+		reg  = drc << DRC_xMII0_OFFSET;
+		break;
+	case SYSCTRL_INTERFACE_XMII1:
+		mask = DRC_xMII1_MASK;
+		reg  = drc << DRC_xMII1_OFFSET;
+		break;
+	case SYSCTRL_INTERFACE_SGMII:
+		mask = DRC_SGMII_MASK;
+		reg  = drc << DRC_SGMII_OFFSET;
+		break;
+	default:
+		return -1;
+	}
+
+	spin_lock_irqsave(&sysctrl_lock, flags);
+	sysctl_w32_mask(SYSCTL_SYSETH, mask, reg & mask, SYS_ETH_DRC);
+	spin_unlock_irqrestore(&sysctrl_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_drc_set);
+
+int ltq_sysctl_mac_mux_set(const unsigned int mac, const unsigned int mux)
+{
+	unsigned int mask;
+	unsigned long flags;
+
+	if (mac > 3)
+		return -1;
+
+	mask = GMAC_MASK(mac);
+
+	spin_lock_irqsave(&sysctrl_lock, flags);
+	sysctl_w32_mask(SYSCTL_SYSETH,
+			mask,
+			(mux << GMAC_OFFSET(mac)) & mask,
+			SYS_ETH_GMUXC);
+	spin_unlock_irqrestore(&sysctrl_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_mac_mux_set);
+
+int ltq_sysctl_mac_mux_get(const unsigned int mac, unsigned int *mux)
+{
+	if (mac > 3 || !mux)
+		return -1;
+
+	*mux = (sysctl_r32(SYSCTL_SYSETH, SYS_ETH_GMUXC) & GMAC_MASK(mac)) >>
+							       GMAC_OFFSET(mac);
+
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_mac_mux_get);
+
+int ltq_sysctl_mac_drs_get(const unsigned int mac, unsigned int *drs)
+{
+	if (mac > 3 || !drs)
+		return -1;
+
+	*drs = (sysctl_r32(SYSCTL_SYSETH, SYS_ETH_DRS) & GMAC_MASK(mac)) >>
+							       GMAC_OFFSET(mac);
+
+	return 0;
+}
+EXPORT_SYMBOL(ltq_sysctl_mac_drs_get);
 #endif
 
 #ifdef CONFIG_FALCON_TIMER
