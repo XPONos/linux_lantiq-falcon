@@ -1782,6 +1782,14 @@ config MODULE_FORCE_LOAD_STRIPPED
 	  Allow loading of stripped modules with almost no module information.
 	  This is a REALLY BAD IDEA, but if you have to load an out-of-tree 
 	  module sometimes you have no alternative.
+	  
+config MODULE_LOAD_REALLOC
+	bool "Enable support to load module without long-calls"
+	depends on MIPS
+	default n
+	help
+	  Allow loading of modules that have been compiled without mlong-calls, 
+	  required for some out-of-tree modules.
 
 endif # MODULES
 
