@@ -110,8 +110,9 @@
 #define ASCFSTAT_TXFREEMASK	0x3F000000
 #define ASCFSTAT_TXFREEOFF	24
 
-static void lqasc_tx_chars(struct uart_port *port);
+static void lqasc_tx_chars(struct uart_port *port, const bool dummy);
 static struct ltq_uart_port *lqasc_port[MAXPORTS];
+static unsigned int lqasc_tx_block[MAXPORTS] = {0};
 static struct uart_driver lqasc_reg;
 static DEFINE_SPINLOCK(ltq_asc_lock);
 
@@ -125,6 +126,17 @@ struct ltq_uart_port {
 	unsigned int		rx_irq;
 	unsigned int		err_irq;
 };
+
+int lqasc_tty_block_tx(const unsigned int line, const unsigned int block)
+{
+	if (line >= MAXPORTS)
+		return -1;
+
+	lqasc_tx_block[line] = block;
+
+	return 0;
+}
+EXPORT_SYMBOL(lqasc_tty_block_tx);
 
 static inline struct
 ltq_uart_port *to_ltq_uart_port(struct uart_port *port)
@@ -143,7 +155,7 @@ lqasc_start_tx(struct uart_port *port)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&ltq_asc_lock, flags);
-	lqasc_tx_chars(port);
+	lqasc_tx_chars(port, lqasc_tx_block[port->line] ? true : false);
 	spin_unlock_irqrestore(&ltq_asc_lock, flags);
 	return;
 }
@@ -221,7 +233,7 @@ lqasc_rx_chars(struct uart_port *port)
 }
 
 static void
-lqasc_tx_chars(struct uart_port *port)
+lqasc_tx_chars(struct uart_port *port, const bool dummy)
 {
 	struct circ_buf *xmit = &port->state->xmit;
 	if (uart_tx_stopped(port)) {
@@ -230,9 +242,13 @@ lqasc_tx_chars(struct uart_port *port)
 	}
 
 	while (((ltq_r32(port->membase + LTQ_ASC_FSTAT) &
-		ASCFSTAT_TXFREEMASK) >> ASCFSTAT_TXFREEOFF) != 0) {
+		ASCFSTAT_TXFREEMASK) >> ASCFSTAT_TXFREEOFF) != 0 || dummy) {
 		if (port->x_char) {
 			ltq_w8(port->x_char, port->membase + LTQ_ASC_TBUF);
+			if (!dummy)
+				ltq_w8(port->x_char,
+				       port->membase + LTQ_ASC_TBUF);
+
 			port->icount.tx++;
 			port->x_char = 0;
 			continue;
@@ -241,8 +257,10 @@ lqasc_tx_chars(struct uart_port *port)
 		if (uart_circ_empty(xmit))
 			break;
 
-		ltq_w8(port->state->xmit.buf[port->state->xmit.tail],
-			port->membase + LTQ_ASC_TBUF);
+		if (!dummy)
+			ltq_w8(port->state->xmit.buf[port->state->xmit.tail],
+			       port->membase + LTQ_ASC_TBUF);
+
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		port->icount.tx++;
 	}
@@ -596,17 +614,16 @@ lqasc_console_putchar(struct uart_port *port, int ch)
 }
 
 
-static void
-lqasc_console_write(struct console *co, const char *s, u_int count)
+void lqasc_console_puts(const short index, const char *s, u_int count)
 {
 	struct ltq_uart_port *ltq_port;
 	struct uart_port *port;
 	unsigned long flags;
 
-	if (co->index >= MAXPORTS)
+	if (index >= MAXPORTS)
 		return;
 
-	ltq_port = lqasc_port[co->index];
+	ltq_port = lqasc_port[index];
 	if (!ltq_port)
 		return;
 
@@ -615,6 +632,13 @@ lqasc_console_write(struct console *co, const char *s, u_int count)
 	spin_lock_irqsave(&ltq_asc_lock, flags);
 	uart_console_write(port, s, count, lqasc_console_putchar);
 	spin_unlock_irqrestore(&ltq_asc_lock, flags);
+}
+EXPORT_SYMBOL(lqasc_console_puts);
+
+static void
+lqasc_console_write(struct console *co, const char *s, u_int count)
+{
+	lqasc_console_puts(co->index, s, count);
 }
 
 static int __init
